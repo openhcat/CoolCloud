@@ -1,0 +1,386 @@
+DOMAINS, HTTPS AND DYNAMIC DNS
+==============================
+
+CoolCloud speaks plain HTTP on one port. Anything that can put a hostname and
+TLS in front of it works: your own domain, a subdomain, a free DDNS name, or a
+private mesh VPN. This file covers all four.
+
+Read HOSTING.txt first for installing and running the server. The short version:
+
+    CoolCloud  --->  reverse proxy (TLS)  --->  the internet
+    127.0.0.1:8090        :443                   your.domain
+
+
+1. WHAT YOU CAN PUT IN publicUrl
+--------------------------------
+CoolCloud only needs to know the address users type. Admin -> Config ->
+Public URL (or "publicUrl" in config.json) accepts:
+
+    cool.example.com                      bare host, http is assumed
+    https://cool.example.com              full URL, recommended
+    https://cloud.example.com/cool        a sub-path, if your proxy strips it
+    myteam.duckdns.org                    a DDNS hostname
+    http://192.168.1.20:8090              LAN only
+
+The server normalises what you enter: it adds http:// when there is no scheme,
+drops a trailing slash and keeps the path. It never guesses https for a bare
+host, because a wrong https URL breaks sign-in and office frames; type https://
+once your certificate works.
+
+What publicUrl is used for:
+  * links the interface hands out (open in new window, share paths)
+  * the Collabora frame allow-list, so the office editor can be embedded
+  * the WOPI base URL the office container calls back to
+
+If publicUrl is wrong, everything still loads but office documents and some
+links misbehave. Set it to the exact origin in the address bar.
+
+
+2. PICK YOUR ADDRESS
+--------------------
+A. LAN only, no domain
+   publicUrl  http://servername:8090
+   host       0.0.0.0
+   No DNS, no certificate. Fine for a home or office network.
+
+B. Your own domain
+   Buy or use a domain you control. Create a DNS record for a hostname, for
+   example cloud.example.com. Recommended for teams.
+
+C. Dynamic DNS (changing home IP)
+   Use a DDNS provider that gives you a hostname which always points at your
+   current IP. See section 6.
+
+D. No open ports at all
+   Use a tunnel: Cloudflare Tunnel (section 8) or Tailscale (section 9). The
+   machine needs no public IP and no router changes.
+
+
+3. DNS RECORDS
+--------------
+At your DNS provider create one record:
+
+    Type   Name                 Value                 TTL
+    A      cloud                <your public IPv4>    300
+    AAAA   cloud                <your public IPv6>    300   (optional, if you have one)
+    CNAME  cloud                example.com.          300   (instead of A/AAAA)
+
+Notes
+  * "cloud" is relative to the zone, so the result is cloud.example.com.
+  * Point at your router's WAN address, not the LAN address of the server.
+  * If you only have IPv6, publish AAAA only and expect IPv4-only visitors to
+    fail. Tunnel or IPv4 is safer.
+  * Keep TTL low (300) while you set things up. Raise it to 3600 later.
+  * Wildcards (*.example.com) work but are not needed.
+
+Check propagation before touching certificates:
+
+    nslookup cloud.example.com
+    dig +short cloud.example.com
+
+
+4. PORTS AND FIREWALL
+---------------------
+Forward these on the router to the machine running the proxy:
+
+    80/tcp    certificate challenges and http->https redirect
+    443/tcp   the site
+
+Do NOT forward 8090 to the internet. Keep CoolCloud on loopback:
+
+    "host": "127.0.0.1"
+
+and let the proxy reach it on the same machine. If the proxy is on another
+machine, use the LAN address and firewall 8090 to that host only.
+
+Linux firewall example (proxy on the same box):
+
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+    sudo ufw deny 8090/tcp
+
+Windows: Windows Defender Firewall -> Advanced settings -> Inbound rules.
+Allow only the proxy ports. The Node process does not need an inbound rule if
+the proxy is local.
+
+
+5. TLS WITH A REVERSE PROXY
+---------------------------
+Caddy is the shortest path: it obtains and renews certificates automatically.
+
+    cloud.example.com {
+        reverse_proxy 127.0.0.1:8090 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+        request_body {
+            max_size 4GB
+        }
+    }
+
+Save as /etc/caddy/Caddyfile, then:
+
+    sudo systemctl reload caddy
+    sudo journalctl -u caddy -f
+
+nginx, with certificates from certbot:
+
+    sudo certbot certonly --webroot -w /var/www/html -d cloud.example.com
+
+    server {
+        listen 80;
+        server_name cloud.example.com;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name cloud.example.com;
+
+        ssl_certificate     /etc/letsencrypt/live/cloud.example.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/cloud.example.com/privkey.pem;
+
+        client_max_body_size 4G;
+        proxy_read_timeout 300s;
+
+        location / {
+            proxy_pass http://127.0.0.1:8090;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+        }
+
+        location /ws {
+            proxy_pass http://127.0.0.1:8090;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_read_timeout 3600s;
+        }
+    }
+
+    sudo nginx -t && sudo systemctl reload nginx
+
+The /ws location matters. Without the Upgrade headers Connect falls back to
+polling and the Activity bell stops updating live.
+
+Certificates renew on their own (certbot's systemd timer, Caddy's built-in
+renewal). Test renewal once:
+
+    sudo certbot renew --dry-run
+
+Then set the public URL and, if the proxy is local, the bind address:
+
+    Admin -> Config -> Public URL = https://cloud.example.com
+    config.json "host": "127.0.0.1"
+
+Restart CoolCloud after changing host or port. publicUrl applies immediately.
+
+
+6. DYNAMIC DNS (HOME CONNECTION)
+--------------------------------
+Your home IP changes. A DDNS hostname follows it, so DNS never goes stale.
+
+First, check whether you are even reachable. Compare the address at
+https://ifconfig.me with the WAN address shown in your router. If they differ,
+you are behind CGNAT (section 7) and port forwarding cannot work.
+
+6a. DuckDNS (free, five minutes)
+    Create myteam.duckdns.org and copy the token, then update it from cron.
+
+    Linux (crontab -e, every five minutes):
+
+        */5 * * * * curl -fsS "https://www.duckdns.org/update?domains=myteam&token=YOUR_TOKEN&ip=" >/dev/null
+
+    Leaving ip= empty makes DuckDNS use the address the request came from.
+
+    Windows (Task Scheduler -> Create Task -> every 5 minutes):
+
+        powershell -NoProfile -Command "Invoke-WebRequest -UseBasicParsing 'https://www.duckdns.org/update?domains=myteam&token=YOUR_TOKEN&ip='"
+
+    publicUrl: https://myteam.duckdns.org
+
+6b. No-IP
+    Create a hostname in the No-IP dashboard. Use ddclient (Linux):
+
+        sudo apt install ddclient
+        # /etc/ddclient.conf
+        protocol=noip
+        use=web, web=checkip.dyndns.org
+        login=YOUR_EMAIL
+        password=YOUR_PASSWORD_OR_TOKEN
+        myteam.ddns.net
+
+        sudo systemctl enable --now ddclient
+
+6c. Cloudflare DNS with a changing IP
+    Keep the zone on Cloudflare and update the A record with an API token that
+    has Zone.DNS edit permission.
+
+        #!/bin/sh
+        # /usr/local/bin/cf-ddns.sh  (chmod +x)
+        ZONE="example.com"
+        NAME="cloud"
+        TOKEN="YOUR_API_TOKEN"
+        IP=$(curl -fsS https://api.ipify.org)
+
+        ID=$(curl -fsS -H "Authorization: Bearer $TOKEN" \
+          "https://api.cloudflare.com/client/v4/zones?name=$ZONE" \
+          | sed -n 's/.*"id":"\([a-f0-9]\{32\}\)".*/\1/p' | head -n1)
+
+        REC=$(curl -fsS -H "Authorization: Bearer $TOKEN" \
+          "https://api.cloudflare.com/client/v4/zones/$ID/dns_records?name=$NAME.$ZONE" \
+          | sed -n 's/.*"id":"\([a-f0-9]\{32\}\)".*/\1/p' | head -n1)
+
+        curl -fsS -X PUT -H "Authorization: Bearer $TOKEN" \
+          -H "Content-Type: application/json" \
+          "https://api.cloudflare.com/client/v4/zones/$ID/dns_records/$REC" \
+          -d "{\"type\":\"A\",\"name\":\"$NAME\",\"content\":\"$IP\",\"ttl\":300,\"proxied\":false}" \
+          >/dev/null
+
+    Run it from cron every five minutes as above. Set proxied:false while you
+    are debugging so DNS points straight at your router.
+
+6d. Router DDNS
+    Many routers have a Dynamic DNS page. If yours supports DuckDNS, No-IP or a
+    custom provider, use it and skip the scripts.
+
+6e. Certificate with a dynamic hostname
+    Caddy handles it without changes. For certbot use a DNS challenge so the
+    certificate does not depend on port 80 reaching you:
+
+        sudo certbot certonly --manual --preferred-challenges dns \
+          -d myteam.duckdns.org
+
+    Renewal then needs the same DNS manipulation; most people run Caddy behind
+    a DDNS name for exactly this reason.
+
+
+7. CGNAT
+--------
+If your WAN address is 100.64.x.x - 100.127.x.x, or the router WAN address
+differs from your public IP, your ISP shares one IPv4 address and inbound ports
+are impossible. Options, in order of effort:
+
+  * Ask the ISP for a static IPv4 or for CGNAT to be lifted.
+  * Use IPv6 (AAAA) if your ISP delegates a prefix and your visitors have IPv6.
+  * Use a tunnel (section 8) or a mesh VPN (section 9). No port forwarding.
+
+
+8. CLOUDFLARE TUNNEL (NO PORTS, NO PUBLIC IP)
+---------------------------------------------
+Cloudflare Tunnel gives you https://cloud.example.com with no inbound ports.
+
+    # on the server, once
+    cloudflared tunnel login
+    cloudflared tunnel create coolcloud
+    cloudflared tunnel route dns coolcloud cloud.example.com
+
+    # ~/.cloudflared/config.yml
+    tunnel: coolcloud
+    credentials-file: /root/.cloudflared/<tunnel-id>.json
+    ingress:
+      - hostname: cloud.example.com
+        service: http://127.0.0.1:8090
+      - service: http_status:404
+
+    sudo cloudflared service install
+    sudo systemctl enable --now cloudflared
+
+Then set publicUrl to https://cloud.example.com. Two caveats:
+
+  * The free plan caps proxied request bodies at 100 MB. Large uploads need a
+    paid plan, a split upload path, or DNS-only mode with port forwarding.
+  * With the orange cloud on, Cloudflare terminates TLS. That is fine; the
+    origin can stay HTTP on loopback. Use SSL/TLS mode "Full (strict)" only if
+    your origin also has a certificate.
+
+
+9. TAILSCALE / WIREGUARD (PRIVATE ONLY)
+---------------------------------------
+Best for a team that does not need a public site. Install Tailscale on the
+server and on each device, enable MagicDNS, and use:
+
+    publicUrl  http://coolcloud.<tailnet>.ts.net:8090
+    host       0.0.0.0
+
+Tailscale Serve can add TLS on the ts.net name if you want https. Members only:
+no ports open, no certificate work, nothing public.
+
+
+10. OFFICE EDITING BEHIND A DOMAIN
+----------------------------------
+Collabora runs in a container and calls back to CoolCloud over HTTP. Two rules:
+
+  * The container must be able to reach publicUrl. If the domain resolves
+    publicly, that works. If it only resolves inside your network, add a host
+    mapping for the container, or set editor.wopiHost to an address it can
+    reach (the default host.docker.internal already covers a local install).
+  * The editor is framed, so CoolCloud tells Collabora which origins may embed
+    it. That list is derived from publicUrl: change publicUrl and restart
+    CoolCloud so the container is recreated with the new frame ancestors.
+
+If documents spin forever after moving to https, the usual cause is publicUrl
+still saying http://localhost:8090. Fix it in Admin -> Config and reopen the
+document. See EDITOR-OFFICE.txt.
+
+
+11. VERIFY THE MOVE
+-------------------
+From a phone on mobile data (not your WiFi):
+
+    curl -I https://cloud.example.com/health
+    # expect HTTP/2 200, content-type application/json
+
+    curl -s https://cloud.example.com/health
+    # {"ok":true,"name":"CoolCloud",...}
+
+Then in the browser:
+  * the padlock is valid, with no mixed-content warnings in the console
+  * sign-in works and the cookie is Secure (DevTools -> Application -> Cookies)
+  * Connect shows Connected, not Reconnecting (WebSocket upgrade works)
+  * upload a 200 MB file (proxy body limit)
+  * open a .docx and type in it (frame allow-list and WOPI callbacks)
+
+Command-line checks:
+
+    # websocket upgrade
+    curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+      -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+      https://cloud.example.com/ws
+
+    # header pass-through
+    curl -sI https://cloud.example.com/api/branding
+
+
+12. TROUBLESHOOTING
+-------------------
+Symptom                          Likely cause and fix
+-------------------------------  -------------------------------------------------
+Redirect loop after HTTPS        Proxy sends X-Forwarded-Proto but CoolCloud is
+                                 reached over http and builds http links. Set
+                                 publicUrl to https:// and restart.
+Sign-in works, then 401          Cookie not kept: proxy rewrites Host, or you
+                                 mix http and https. One origin only.
+Connect says Reconnecting        /ws not upgraded. Add the Upgrade/Connection
+                                 headers and a long proxy_read_timeout.
+Uploads stop at 100 MB           Cloudflare proxy limit, or nginx default
+                                 client_max_body_size. Raise it.
+Office editor blank              publicUrl host differs from the frame
+                                 ancestors. Fix publicUrl, restart, reopen.
+Office editor 502                Container cannot resolve your domain. Use
+                                 wopiHost or public DNS.
+Certificate errors               Port 80 blocked so the ACME challenge fails.
+                                 Use the DNS challenge.
+DDNS host resolves to old IP     TTL still high, or the updater is failing.
+                                 Check the provider dashboard.
+Connection refused from outside  Port forwarding missing, firewall closed, or
+                                 CGNAT. Compare WAN and public IP.
+Mixed content warnings           publicUrl is https but something is hard-coded
+                                 to http. Recheck the config file.
+
+When in doubt, the server's own logs are the first place to look:
+Admin -> Logs, or <instance>/data/logs/error.log.

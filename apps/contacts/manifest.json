@@ -1,0 +1,12 @@
+{
+  "id": "cc:contacts",
+  "name": "Contacts",
+  "developer": "cc",
+  "version": "1.0.0",
+  "description": "Your address book, stored on your own server.",
+  "icon": "fa-regular fa-address-book",
+  "accent": "contacts",
+  "entry": "web/index.html",
+  "builtin": true,
+  "permissions": ["contacts:read", "contacts:write"]
+}

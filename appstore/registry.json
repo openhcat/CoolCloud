@@ -1,0 +1,31 @@
+{
+  "schema": "coolcloud.registry/1",
+  "name": "CoolCloud Examples",
+  "description": "Example registry. Point Admin → App Store at any URL that returns this shape.",
+  "maintainer": "you@example.com",
+  "updated": "2026-11-20",
+  "apps": [
+    {
+      "id": "example:hello",
+      "name": "Hello",
+      "developer": "example",
+      "version": "1.0.0",
+      "description": "A minimal app that lists Files and reuses the CoolCloud design system.",
+      "icon": "fa-regular fa-hand",
+      "accent": "contacts",
+      "repo": "https://github.com/yourname/coolcloud-hello.git",
+      "tags": ["example", "starter"]
+    },
+    {
+      "id": "acme:notes",
+      "name": "Notes",
+      "developer": "acme",
+      "version": "1.2.0",
+      "description": "Shared notes for the team, stored in Files.",
+      "icon": "fa-solid fa-note-sticky",
+      "accent": "editor",
+      "repo": "https://github.com/acme/coolcloud-notes.git",
+      "tags": ["notes", "collaboration"]
+    }
+  ]
+}

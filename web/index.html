@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0b5fb0" />
+    <meta name="description" content="CoolCloud — a self-hosted collaboration suite: files, calendar, mail, contacts, conversations and documents." />
+    <title>CoolCloud</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="CoolCloud" />
+    <link rel="stylesheet" href="/vendor/fa/css/all.min.css" />
+    <link rel="stylesheet" href="/vendor/fonts/inter.css" />
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/layout.css" />
+    <link rel="stylesheet" href="/css/apps.css" />
+    <link rel="stylesheet" href="/css/workspace.css" />
+  </head>
+  <body>
+    <div id="root">
+      <div class="splash">
+        <div class="splash-mark">
+          <span class="brand-lockup">
+            <span class="bl-mark">C<span class="bl-inf">&#8734;</span>L</span>
+            <span class="bl-word">Cloud</span>
+          </span>
+        </div>
+        <p class="splash-line">Starting CoolCloud…</p>
+      </div>
+    </div>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+    <div id="modal-root"></div>
+    <script type="module" src="/js/boot.js"></script>
+  </body>
+</html>

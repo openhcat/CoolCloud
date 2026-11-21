@@ -1,0 +1,61 @@
+APP MANIFEST REFERENCE
+======================
+
+manifest.json sits at the root of an app folder. CoolCloud validates it before
+installing or enabling an app.
+
+Fields
+------
+id            Required. "developer:name", lower case, e.g. "acme:notes".
+              Used everywhere as the app identity. The prefix before ":" must
+              match developer.
+name          Required. Display name, 1-40 characters.
+developer     Required in practice. Lower-case slug, e.g. "acme".
+version       Semantic version, e.g. "1.2.0".
+description   One sentence shown in the app drawer and store.
+icon          Font Awesome class, e.g. "fa-solid fa-note-sticky".
+accent        One of: files, calendar, mail, contacts, editor, tasks,
+              connect, media, assistant. Controls the tint.
+entry         Path to the HTML entry, relative to the app folder.
+              Default: web/index.html
+type          "app" (default) or "widget". A widget renders inside a home
+              page widget card instead of opening a tab. Widgets are not
+              listed in the sidebar or the tab strip; they appear in the
+              home widget library and in the App Store with a widget badge.
+              Install can force the type: coolcloud --install acme:clock
+              !type=widget — the installer writes it into the manifest.
+builtin       true only for bundled apps. Do not set it in third-party apps.
+permissions   Declared API scopes. Informational in 1.0; installed apps can use
+              the same-origin API as the signed-in user, so keep it honest.
+meta          Optional object for your own use (beta flags, author URL, etc.).
+
+Example
+-------
+{
+  "id": "acme:notes",
+  "name": "Notes",
+  "developer": "acme",
+  "version": "1.2.0",
+  "description": "Shared notes for the team, stored in Files.",
+  "icon": "fa-solid fa-note-sticky",
+  "accent": "editor",
+  "entry": "web/index.html",
+  "type": "app",
+  "permissions": ["files:read", "files:write"],
+  "meta": { "homepage": "https://example.com/notes" }
+}
+
+Validation rules
+----------------
+* id, name and developer are required.
+* id must contain exactly one colon and no spaces or slashes.
+* entry must stay inside the app folder (no ../).
+* type is optional; anything other than "widget" is treated as "app".
+* A folder without a valid manifest is ignored by the installer and the
+  startup scan.
+* Installed apps live in data/apps/<developer>/<name>/. The folder name does
+  not have to match the id, but keeping it aligned avoids confusion.
+
+Updating
+--------
+Install again over the same id. The folder is replaced, the app stays enabled.

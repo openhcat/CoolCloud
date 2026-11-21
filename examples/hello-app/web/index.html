@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello · CoolCloud</title>
+    <link rel="stylesheet" href="/vendor/fa/css/all.min.css" />
+    <link rel="stylesheet" href="/vendor/fonts/inter.css" />
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <style>
+      body {
+        padding: 24px;
+        background: var(--bg);
+      }
+      .app-page {
+        max-width: 900px;
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-page">
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">Hello from an app</h1>
+          <p class="page-sub">This page is served from your instance's app folder and talks to the same API.</p>
+        </div>
+        <button class="btn primary sm" id="refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      </header>
+      <section class="card" id="files"><div class="skeleton" style="height:80px"></div></section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

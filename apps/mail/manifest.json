@@ -1,0 +1,12 @@
+{
+  "id": "cc:mail",
+  "name": "Mail",
+  "developer": "cc",
+  "version": "1.0.0",
+  "description": "Bring your own SMTP and IMAP servers. Nothing is proxied.",
+  "icon": "fa-regular fa-envelope",
+  "accent": "mail",
+  "entry": "web/index.html",
+  "builtin": true,
+  "permissions": ["mail:send", "mail:read"]
+}

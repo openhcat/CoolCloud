@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "name": "CoolCloud",
+  "host": "0.0.0.0",
+  "port": 8080,
+  "publicUrl": "http://localhost:8080",
+  "timezone": "system",
+  "branding": {
+    "tagline": "Your workspace, on your machine",
+    "logoWord": "CLOUD",
+    "mark": "cl",
+    "accent": "#a8491f",
+    "logo": ""
+  },
+  "storage": {
+    "mode": "unlimited",
+    "totalGb": null,
+    "defaultUserQuotaMb": null
+  },
+  "limits": {
+    "maxUsers": 0
+  },
+  "apps": {
+    "core": ["files", "calendar", "mail", "contacts", "editor", "tasks"],
+    "essentials": ["connect", "media", "assistant"],
+    "essentialsInstalled": false,
+    "disabled": []
+  },
+  "editor": {
+    "text": true,
+    "officeProvider": "collabora",
+    "officeUrl": "",
+    "officeContainer": "coolcloud-office",
+    "autoHost": true,
+    "wopiHost": "",
+    "wopiSecret": ""
+  },
+  "mail": {
+    "allowUserSmtp": true,
+    "allowUserImap": true
+  },
+  "features": {
+    "search": true,
+    "appstore": true,
+    "assistant": false,
+    "connect": false,
+    "media": false
+  },
+  "security": {
+    "sessionDays": 14,
+    "allowSignups": false,
+    "trustProxy": true
+  }
+}

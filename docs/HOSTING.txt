@@ -1,0 +1,191 @@
+HOSTING COOLCLOUD
+=================
+
+CoolCloud is a single Node.js process with a SQLite database and a data folder.
+It needs no database server, no Redis and no build step.
+
+Requirements
+------------
+* Linux (x86_64 or arm64) or Windows 10/11 / Server 2019+
+* Node.js 24 or newer (https://nodejs.org)
+* 1 GB RAM is enough for small teams; 2 GB is comfortable
+* Disk space for Files, plus backups
+* Docker, for the office editor: CoolCloud hosts Collabora Online by default.
+  Without Docker everything works except embedded office editing.
+
+Linux
+-----
+1. Install Node 24 (NodeSource, distro package or nvm):
+
+       curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+       sudo apt install -y nodejs
+
+2. Clone and run the installer as the user that will own the data:
+
+       git clone <repo> /opt/coolcloud-src
+       cd /opt/coolcloud-src
+       node bin/coolcloud.js --install
+       # choose /opt/coolcloud when asked
+
+3. Start it once manually to confirm:
+
+       cd /opt/coolcloud && ./start.sh
+
+4. Run it as a systemd service. Create /etc/systemd/system/coolcloud.service:
+
+       [Unit]
+       Description=CoolCloud
+       After=network.target
+
+       [Service]
+       Type=simple
+       User=coolcloud
+       WorkingDirectory=/opt/coolcloud
+       Environment=CC_CONFIG=/opt/coolcloud/config.json
+       ExecStart=/usr/bin/node /opt/coolcloud/server/index.js
+       Restart=on-failure
+       RestartSec=3
+       NoNewPrivileges=true
+       ProtectSystem=full
+       ReadWritePaths=/opt/coolcloud/data /opt/coolcloud/config.json
+
+       [Install]
+       WantedBy=multi-user.target
+
+   Then:
+
+       sudo systemctl daemon-reload
+       sudo systemctl enable --now coolcloud
+       sudo journalctl -u coolcloud -f
+
+   Create the service user first and make sure it owns the instance:
+
+       sudo useradd --system --home /opt/coolcloud --shell /usr/sbin/nologin coolcloud
+       sudo chown -R coolcloud:coolcloud /opt/coolcloud
+
+Windows
+-------
+1. Install Node.js 24 from nodejs.org (the MSI adds node to PATH).
+2. Clone the repository and run:
+
+       node bin\coolcloud.js --install
+
+3. Start with:
+
+       cd C:\Users\you\coolcloud
+       start.cmd
+
+4. To keep it running, use one of:
+
+   * Task Scheduler → Create Task → "At startup", action:
+     Program: C:\Program Files\nodejs\node.exe
+     Arguments: C:\Users\you\coolcloud\server\index.js
+     Start in: C:\Users\you\coolcloud
+     Environment: CC_CONFIG=C:\Users\you\coolcloud\config.json
+
+   * Or install NSSM and register the same command as a service.
+
+   * Or use `pm2` if you already run Node services:
+
+         npm install -g pm2 pm2-windows-startup
+         pm2 start server/index.js --name coolcloud
+         pm2 save && pm2-startup install
+
+Put it behind TLS
+-----------------
+Never expose plain HTTP beyond your LAN. For a custom domain, a free DDNS
+hostname, Cloudflare Tunnel or Tailscale, read DOMAIN-TLS-DDNS.txt: it covers
+the DNS records, the exact proxy configs, certificate renewal and what to put
+in publicUrl.
+
+Two quick options:
+
+Caddy (simplest, automatic certificates):
+
+    cool.example.com {
+        reverse_proxy 127.0.0.1:8080
+    }
+
+nginx:
+
+    server {
+        listen 443 ssl http2;
+        server_name cool.example.com;
+
+        ssl_certificate     /etc/letsencrypt/live/cool.example.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/cool.example.com/privkey.pem;
+
+        client_max_body_size 4G;
+
+        location / {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /ws {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+        }
+    }
+
+After setting TLS, update `publicUrl` in config.json (or Admin → Config) to the
+https URL, and set host to 127.0.0.1 if the proxy is on the same machine.
+A bare host (cloud.example.com) is accepted too; https:// is explicit and safer.
+See DOMAIN-TLS-DDNS.txt if the office editor stops embedding after the move.
+
+Firewall
+--------
+Only open 80/443 to the internet. Keep 8080 bound to loopback or the LAN:
+
+    "host": "127.0.0.1"
+
+Backups
+-------
+Everything that matters is in the instance folder:
+
+    config.json     configuration
+    data/db.sqlite  users, calendar, contacts, tasks, mail log, apps
+    data/files/     Files content
+    data/apps/      installed third-party apps
+
+Stop the server (or use SQLite's online backup) and copy the folder:
+
+    systemctl stop coolcloud
+    tar czf coolcloud-$(date +%F).tar.gz /opt/coolcloud/config.json /opt/coolcloud/data
+    systemctl start coolcloud
+
+For a live backup without downtime prefer:
+
+    sqlite3 /opt/coolcloud/data/db.sqlite ".backup '/backup/db.sqlite'"
+    rsync -a /opt/coolcloud/data/files/ /backup/files/
+
+Test restores. A backup you have never restored is a hope, not a backup.
+
+Upgrades
+--------
+1. Back up.
+2. Replace the code (keep config.json and data/).
+3. Restart. The server applies schema additions on boot; nothing is destructive.
+
+If you installed from git:
+
+    cd /opt/coolcloud-src && git pull
+    rsync -a --exclude data --exclude config.json ./ /opt/coolcloud/
+    systemctl restart coolcloud
+
+Multiple instances
+------------------
+Run two copies in separate folders with different ports and separate data
+folders. Give each its own config.json and service.
+
+Storage limits
+--------------
+"Unlimited" means CoolCloud uses what the machine gives it. A limited mode is
+enforced on upload against data/. Per-user quotas are stored and shown in Admin
+but not enforced while Files is a shared drive.

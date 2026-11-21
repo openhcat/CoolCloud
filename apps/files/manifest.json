@@ -1,0 +1,12 @@
+{
+  "id": "cc:files",
+  "name": "Files",
+  "developer": "cc",
+  "version": "1.0.0",
+  "description": "The shared drive for your server: folders, uploads, previews and versions.",
+  "icon": "fa-solid fa-folder-open",
+  "accent": "files",
+  "entry": "web/index.html",
+  "builtin": true,
+  "permissions": ["files:read", "files:write"]
+}

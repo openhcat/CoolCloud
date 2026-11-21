@@ -1,0 +1,103 @@
+EDITOR AND OFFICE DOCUMENTS
+===========================
+
+CoolCloud is a files-first suite, so the Editor edits real files in Files rather
+than a separate document silo.
+
+Text editing (always on)
+------------------------
+* Opens .txt, .md, .json, code, config and Dockerfiles.
+* Line numbers, monospace editing, Ctrl/Cmd+S, tab-to-spaces.
+* Markdown preview toggle.
+* A .cc-history folder next to the file keeps the last 20 saves of files under
+  2 MB. History folders are hidden from Files and Media.
+* Files over 5 MB are not loaded as text; use download instead.
+
+Office documents
+----------------
+.docx, .xlsx, .pptx, .odt, .ods and .odp open inside the CoolCloud tab, in a
+Collabora Online editor, and save straight back into Files.
+
+That works because CoolCloud is also a WOPI host. Collabora never touches the
+disk: it asks CoolCloud for the document with a signed, short-lived token.
+
+How it is hosted
+----------------
+Collabora is hosted on this machine by default:
+
+  data/office/docker-compose.yml    generated compose file
+  collabora/code:latest             1.9 GB image, pulled on first use
+  127.0.0.1:9980                    loopback only, not exposed to the network
+  coolcloud-office                  container name
+
+Nothing is started at install time. The container is created the first time it
+is needed — on sign-in to a server whose config asks for Collabora, or when the
+first office document is opened. The viewer shows "Starting the office server…"
+and loads the editor as soon as it answers. Later opens are immediate.
+
+Docker is required for hosting. Without Docker, office files fall back to
+download-only and the text editor keeps working.
+
+WOPI host
+---------
+CoolCloud implements the WOPI protocol on the same port as the app:
+
+  GET  /wopi/files/<id>?access_token=...            CheckFileInfo
+  GET  /wopi/files/<id>/contents?access_token=...   GetFile
+  POST /wopi/files/<id>/contents?access_token=...   PutFile (save)
+  POST /wopi/files/<id>                             LOCK / UNLOCK /
+                                                    REFRESH_LOCK / GET_LOCK
+
+* <id> is the base64url of the file's path in Files.
+* The token is an HMAC-SHA256 blob signed with editor.wopiSecret (generated on
+  first boot) and bound to that file path and the signed-in user id.
+* Tokens expire after 8 hours and are rejected as soon as the account is gone.
+* Only office extensions are served; anything else is 415.
+* Saves are written to a temp file and renamed, so a failed upload cannot
+  truncate a document.
+* Every open is recorded in data/logs/access.log as
+  "wopi: <user> opened <path>".
+
+The container reaches the host as host.docker.internal:<port>. The compose file
+sets aliasgroup1 to that host:port and net.frame_ancestors to the public URL's
+host, which is why the editor may be framed by CoolCloud.
+
+Choosing a provider
+-------------------
+Admin → Config → Editor & office:
+
+  Collabora Online   Hosted here by default; embedded editing in the tab.
+  OnlyOffice Docs    Provisioned in Docker, but opens in its own window.
+  Microsoft 365      Link only.
+  None               Text editor only; office files download.
+
+"Host the office server on this machine" keeps the automatic start. Untick it to
+point at a Collabora you run yourself, then set the URL.
+
+Delete the office server
+------------------------
+Admin → Config → Editor & office → "Delete office server".
+
+It runs `docker compose down -v --remove-orphans`, deletes
+data/office/docker-compose.yml, and switches the provider back to None. Your
+documents in Files are untouched, and the downloaded image stays in Docker so a
+later reinstall starts in seconds. Start it again with "Start container" or by
+opening an office document.
+
+Behind a proxy or on another port
+---------------------------------
+* Set publicUrl to the address people actually browse. The frame ancestor and
+  the WOPI host returned to Collabora are derived from it.
+* To use an external Collabora, set the provider URL and set editor.wopiHost to
+  a hostname the office server can resolve back to CoolCloud.
+* Keep 9980 on loopback. Publishing it directly exposes the editor without TLS.
+
+Limits worth knowing
+--------------------
+* Files is a shared drive, so every signed-in user who can open a document can
+  also edit it. There is no per-document permission model.
+* Office saves are binary writes. The 20-version .cc-history feature only
+  applies to text files.
+* Only Collabora is embedded. The OnlyOffice and Microsoft options are links.
+* A very slow first pull (1.9 GB) can take minutes; the viewer keeps polling and
+  the tab can be closed and reopened safely.

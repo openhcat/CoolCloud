@@ -1,0 +1,284 @@
+COOLCLOUD HTTP API
+===================
+
+Base URL: the URL of your instance, e.g. http://localhost:8080
+All API responses are JSON. Errors look like { "error": "message" } with the
+matching HTTP status.
+
+Authentication
+--------------
+Browsers use the HttpOnly session cookie set by POST /api/auth/login.
+Scripts and the CLI send:
+
+    Authorization: Bearer <token>
+
+The token is returned by the login response as `token` and is valid for
+security.sessionDays (default 14). Signing out destroys it.
+
+CSRF: every non-GET request with an Origin header must be same-origin. Requests
+without Origin (CLI) are allowed. Cookies are SameSite=Strict.
+
+Status codes: 200 ok, 400 bad input, 401 not signed in, 403 not allowed,
+404 missing, 409 conflict, 413 too large, 415 not text, 502 upstream (SMTP,
+IMAP, AI provider), 507 storage full.
+
+Auth
+----
+POST   /api/auth/login          { username, password } -> { user, token }
+POST   /api/auth/logout
+GET    /api/auth/session        { user, apps, server }
+       apps carry { id, name, ..., type } where type is "app" or "widget".
+       server includes { name, organization, branding, features, editor }.
+POST   /api/auth/password       { current, next }
+PATCH  /api/me                  { name?, email?, prefs? }
+
+Files
+-----
+GET    /api/files?path=DIR                  list a folder
+PUT    /api/files?path=FILE                 raw body upload / overwrite
+POST   /api/files/folder                    { path }
+POST   /api/files/move                      { from, to } 409 if the name is taken
+POST   /api/files/copy                      { from, to } duplicate (unique name)
+GET    /api/files/folders                   folder tree for move dialogs
+DELETE /api/files?path=FILE|DIR
+GET    /api/files/raw?path=FILE[&download=1] stream, supports Range
+GET    /api/files/text?path=FILE            { content, mtime, size }
+PUT    /api/files/text                      { path, content, create? }
+       create:true refuses to overwrite (409); saves omit it.
+GET    /api/files/versions?path=FILE        previous saves (max 20)
+
+Example upload:
+
+    curl -X PUT "http://localhost:8080/api/files?path=docs/plan.md" \
+      -H "Authorization: Bearer $TOKEN" \
+      --data-binary @plan.md
+
+Files is a shared drive in 1.0: every signed-in user sees the same tree.
+
+Calendar
+--------
+GET    /api/calendar[?from=ISO&to=ISO]
+POST   /api/calendar            { title, start, end, allDay?, location?, notes?, calendar?, color? }
+PATCH  /api/calendar/:id
+DELETE /api/calendar/:id
+
+Contacts
+--------
+GET    /api/contacts
+POST   /api/contacts            { firstName, lastName?, email?, phone?, organization?, jobTitle?, notes? }
+PATCH  /api/contacts/:id
+DELETE /api/contacts/:id
+
+Tasks
+-----
+GET    /api/tasks
+POST   /api/tasks               { title, notes?, list?, due?, priority? }
+PATCH  /api/tasks/:id           { done?, title?, due?, priority?, list?, notes? }
+DELETE /api/tasks/:id
+
+Mail
+----
+GET    /api/mail                        config (passwords masked) + sent log
+PUT    /api/mail                        { smtp, imap }
+POST   /api/mail/send                   { to, cc?, subject, text }
+GET    /api/mail/inbox[?limit=25]
+GET    /api/mail/message?uid=UID
+DELETE /api/mail/sent/:id
+
+Search and dashboard
+--------------------
+GET    /api/search?q=TERM[&scope=files|system|people|calendar|tasks]
+GET    /api/dashboard
+GET    /api/weather?lat=..&lon=..
+GET    /api/media[?type=images|videos|all]
+GET    /api/apps
+GET    /api/editor
+
+Assistant (Bring your own key)
+------------------------------
+GET    /api/assistant                   { configured, baseUrl, model, hasKey }
+PUT    /api/assistant                   { baseUrl, model, apiKey }
+POST   /api/assistant/chat              { messages: [{role, content}] } -> SSE
+
+The chat endpoint streams `data: {...}` chunks in OpenAI format, then
+`data: [DONE]`.
+
+Connect
+-------
+GET    /api/connect/rooms
+GET    /api/connect/people             { people: [{ id, name, username, role }] }
+GET    /api/connect/messages?room=ROOM
+POST   /api/connect/messages            { room, body }
+POST   /api/connect/invite              { room, username, name?, email? }
+       Notifies the invitee (Activity + bell) and writes a system line in the
+       room. If the username does not exist, an admin request creates the
+       account and the response carries created: { username, password }.
+       Non-admins get 404 for unknown usernames.
+
+Direct messages are rooms named dm-<lowId>-<highId>. Only the two participants
+can read or write them; anything else is 403.
+
+Activity
+--------
+GET    /api/notifications[?limit=30]   { unread, items: [{ id, kind, title, body, link, read, createdAt }] }
+POST   /api/notifications/read         { ids: [1,2] } or { all: true }
+DELETE /api/notifications/:id
+       kind is one of invite, call, message, notice. link is a hash route such
+       as "cc:connect?room=design", opened by the client.
+
+Realtime WebSocket: /ws (cookie or ?token=). JSON messages:
+
+    { type: "join", room }
+    { type: "leave", room }
+    { type: "message", room, body }        // body is ciphertext for the client
+    { type: "typing", room }
+    { type: "signal", room, to, data }     // WebRTC offer/answer/candidate
+
+Server -> client: ready, history, message, presence, typing, signal.
+Messages are stored exactly as clients send them; encryption happens in the
+browser with a room passphrase.
+
+Admin (role=admin required)
+---------------------------
+GET    /api/admin/overview
+GET    /api/admin/logs?file=error|access&lines=200
+GET    /api/admin/system-file?path=REL&root=bundle|instance
+PATCH  /api/admin/config
+GET    /api/admin/users
+POST   /api/admin/users                 { username, password, name?, email?, role?, quotaMb? }
+PATCH  /api/admin/users/:id
+DELETE /api/admin/users/:id
+POST   /api/admin/users/:id/revoke
+GET    /api/admin/apps
+POST   /api/admin/apps/:id/toggle       { enabled }
+POST   /api/admin/apps/install          { dir } or { git, branch? }
+DELETE /api/admin/apps/:id
+GET    /api/admin/store
+POST   /api/admin/store/registries      { url }
+DELETE /api/admin/store/registries?url=...
+POST   /api/admin/store/install         { id } or { git }
+GET    /api/admin/office                { provider, url, container, running, ready }
+POST   /api/admin/office/provision      { provider: "collabora" | "onlyoffice" }
+DELETE /api/admin/office                stop + remove the office container
+GET    /api/office/session?path=...     { ready, embed, url } for the viewer
+
+WOPI host (used by Collabora, token in the query string)
+GET    /wopi/files/:id?access_token=...            CheckFileInfo
+GET    /wopi/files/:id/contents?access_token=...   GetFile
+POST   /wopi/files/:id/contents?access_token=...   PutFile
+POST   /wopi/files/:id                             LOCK/UNLOCK/REFRESH_LOCK
+
+Public
+------
+GET    /health                          { ok, name, version, uptime }
+GET    /api/branding                    { name, branding, version }
+       Unauthenticated so the sign-in screen can show the instance identity.
+       Contains no secrets: logoWord, accent, logo data URL.
+
+Examples
+--------
+    TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"username":"admin","password":"..."}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+
+    curl -s http://localhost:8080/api/files?path= -H "Authorization: Bearer $TOKEN"
+    curl -s "http://localhost:8080/api/search?q=invoice" -H "Authorization: Bearer $TOKEN"
+
+Limits
+------
+JSON bodies are capped at 2 MB (8 MB for text saves). Raw uploads are capped at
+4 GB per request and by the configured storage limit. Inbox reads fetch the 25
+newest headers by default.
+
+Studio endpoints
+----------------
+Files and storage
+GET    /api/files/meta?path=...          Favourite, tags, owner and versions
+PATCH  /api/files/meta                   { path, favorite?, tags? }
+POST   /api/files/trash                  { path } move to trash (30-day retention)
+GET    /api/files/trash                  List deleted items
+POST   /api/files/trash/:id/restore      Restore a deleted item
+DELETE /api/files/trash/:id              Permanently remove one item
+GET    /api/files/versions?path=...      Saved versions
+POST   /api/files/versions               { path } save a version now
+POST   /api/files/versions/restore       { path, name }
+GET    /api/files/duplicates             Duplicate groups and reclaimable bytes
+POST   /api/files/zip                    { paths } create a ZIP download job
+POST   /api/files/uploads                Start a chunked upload
+PUT    /api/files/uploads/:id            Send a chunk at the server offset
+POST   /api/files/uploads/:id/complete   Finish and publish the file
+
+Sharing and collaboration
+POST   /api/files/share                  { path, password?, expiresDays?, allowUpload? }
+GET    /api/files/shares                 Links you created
+DELETE /api/files/share/:token           Revoke a link
+GET    /api/public/share/:token          Public metadata (?password=&path=)
+GET    /api/public/share/:token/raw      Public file download or inline preview
+POST   /api/public/share/:token/upload   Public upload when allowUpload is on
+GET    /api/files/comments?path=...      Comments on a file
+POST   /api/files/comments               { path, body }
+
+Rules, calendar and tasks
+GET    /api/rules                        Automation rules
+POST   /api/rules                        { name, event, action, value }
+PATCH  /api/rules/:id                    Enable or disable a rule
+DELETE /api/rules/:id
+GET    /api/calendar?from=&to=           Recurring events expanded into the window
+POST   /api/calendar/:id/ics             Per-event ICS download
+GET    /api/calendar/export.ics          Whole calendar export
+POST   /api/calendar/import.ics          { text } import an ICS file
+
+Security and account
+GET    /api/security                     TOTP state and active sessions
+POST   /api/security/totp/setup          { password } returns secret and backup codes
+POST   /api/security/totp/enable         { code }
+POST   /api/security/totp/disable        { password, code }
+DELETE /api/security/sessions/:id        Revoke one session
+
+Assistant, apps and operations
+GET    /api/assistant/context            Recent files, tasks and events
+POST   /api/assistant/chat               { messages, context?, model? } streams SSE
+GET    /api/apps/:id/grants              Requested and granted app scopes
+POST   /api/apps/:id/grants              { scopes } consent to app access
+DELETE /api/apps/:id/grants              Revoke all app access
+GET    /api/directory                    Active accounts for pickers
+GET    /api/teams                        Teams you own or belong to
+POST   /api/teams                        { name } create a team
+DELETE /api/teams/:id                    Delete a team you own
+POST   /api/teams/:id/members            { userId } or { userIds } add members
+DELETE /api/teams/:id/members/:userId    Remove a member
+GET    /api/files/acl?path=...           Access list, pending requests, public links
+PUT    /api/files/acl                    { path, restricted, users, teams } with role and expiresAt
+GET    /api/files/shared-with-me         Folders shared directly or through a team
+POST   /api/files/acl/request            { path, note } ask the owner for access
+GET    /api/files/acl/requests           Pending requests you can see or manage
+POST   /api/files/acl/requests/:id/resolve { approve, role } answer a request
+GET    /api/admin/teams                  Team directory with members and grants
+POST   /api/admin/teams/:id/cleanup      Remove disabled team members
+GET    /api/admin/backup                 Download a database and files ZIP
+GET    /api/admin/audit?action=&actor=   Filtered audit log
+GET    /api/admin/storage                Per-account usage
+
+Folder access roles
+-------------------
+viewer    read only
+commenter read and add comments
+editor    read, comment and write files
+manager   everything above plus change access and create public links
+
+Folder rules are opt-in. Paths without a file_acl row keep the workspace-wide
+behavior. Creating a new restriction makes you its owner; owners and managers can
+change it afterwards. The nearest rule walking up the path wins, expired grants are ignored,
+and the folder owner plus administrators are always managers. Access changes and
+request decisions add an in-app notification for the affected account.
+
+PWA and public pages
+GET    /manifest.webmanifest             Installable app manifest
+GET    /sw.js                            Service worker and offline shell
+GET    /share.html?t=TOKEN               Branded public share page
+
+Not in 1.0
+----------
+No rate limit on general endpoints (only failed logins are throttled) and no
+pagination on large collections. WOPI covers CheckFileInfo, GetFile, PutFile
+and LOCK; PutRelativeFile and PutUserInfo are not implemented.

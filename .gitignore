@@ -1,0 +1,12 @@
+node_modules/
+data/
+instance/
+config.json
+*.log
+.DS_Store
+Thumbs.db
+.env
+__pycache__/
+*.pyc
+.freebuff/
+screenshot-*.png

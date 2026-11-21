@@ -1,0 +1,141 @@
+CONFIGURATION
+=============
+
+config.json lives at the instance root. The installer creates it; Admin →
+Config edits most of it at runtime, and `coolcloud --config edit` opens it in
+nano/vim/notepad. Restart the server after changing `host` or `port`.
+
+Example
+-------
+{
+  "version": 1,
+  "name": "CoolCloud",
+  "host": "0.0.0.0",
+  "port": 8080,
+  "publicUrl": "http://localhost:8080",
+  "installPath": "/opt/coolcloud",
+  "installedAt": "2026-11-20T10:00:00.000Z",
+  "organization": {
+    "name": "My organization",
+    "domain": ""
+  },
+  "branding": {
+    "logoWord": "Cloud",
+    "accent": "#0b5fb0",
+    "logo": ""
+  },
+  "storage": { "mode": "unlimited", "totalGb": null, "defaultUserQuotaMb": null },
+  "limits": { "maxUsers": 0 },
+  "apps": {
+    "core": ["files", "calendar", "mail", "contacts", "editor", "tasks"],
+    "essentials": ["connect", "media", "assistant"],
+    "essentialsInstalled": false,
+    "disabled": []
+  },
+  "editor": {
+    "text": true,
+    "officeProvider": "collabora",
+    "officeUrl": "",
+    "officeContainer": "coolcloud-office",
+    "autoHost": true,
+    "wopiHost": "",
+    "wopiSecret": ""
+  },
+  "mail": { "allowUserSmtp": true, "allowUserImap": true },
+  "features": { "search": true, "appstore": true, "assistant": false, "connect": false, "media": false },
+  "security": { "sessionDays": 14, "allowSignups": false, "trustProxy": true }
+}
+
+Keys
+----
+name            Shown in the UI and the terminal banner.
+host            Bind address. 0.0.0.0 exposes the port; 127.0.0.1 keeps it local.
+port            HTTP port. Requires a restart to change.
+publicUrl       The URL users should use. Accepts a bare domain
+                (cloud.example.com), an https:// URL, a sub-path or a DDNS
+                host. The server adds http:// when no scheme is given and
+                strips a trailing slash. Set it to the exact origin users type:
+                it drives share links, the office frame allow-list and the WOPI
+                callback. See DOMAIN-TLS-DDNS.txt.
+installPath     Filled by the installer; informational.
+organization.name
+                Who the cloud is for. Asked during setup, shown on the sign-in
+                screen and editable in Admin -> Config -> Organization.
+organization.domain
+                Optional domain label, lower-cased. Informational in 1.0.
+branding.logoWord
+                The word printed beside C infinity L on the dark blue plate.
+                Up to 12 characters. Empty falls back to "Cloud".
+branding.accent
+                One hex colour (#rrggbb). Drives buttons, links, focus rings,
+                the active tab, the plate and the favicon (the plate is the
+                accent pulled 40% toward near-black). Text colour is derived
+                for contrast. Admin -> Personalization writes this.
+branding.logo   Optional data URL for a custom logo (PNG/JPEG/WebP/GIF/SVG,
+                under 120 KB). It replaces the whole plate and becomes the
+                browser icon. Empty means the built-in C infinity L is used.
+storage.mode    "unlimited" or "limited".
+storage.totalGb Size cap in GB when limited. Uploads are rejected beyond it.
+storage.defaultUserQuotaMb
+                Quota recorded for new accounts. Files is shared, so this is
+                informational in 1.0.
+limits.maxUsers 0 means unlimited. Enforced when creating accounts.
+apps.core       Bundled core app ids.
+apps.essentials Bundled optional app ids.
+apps.essentialsInstalled
+                Whether the Essentials Pack was installed. Admin → Config can
+                turn individual essentials on or off.
+apps.disabled   App ids disabled on this instance. Built-in apps are enabled
+                unless listed here; third-party apps keep their own state.
+editor.officeProvider
+                "none", "collabora", "onlyoffice" or "microsoft".
+editor.officeUrl
+                Public URL of the office server, e.g. http://localhost:9980.
+editor.officeContainer
+                Docker container name used by provisioning.
+editor.autoHost true starts the Collabora container automatically when an
+                office document is opened. Set false to use an office server
+                you run yourself.
+editor.wopiHost
+                Hostname the office container uses to reach CoolCloud. Empty
+                means host.docker.internal.
+editor.wopiSecret
+                Generated on first boot. Signs the per-document WOPI tokens;
+                rotating it invalidates every open editor session.
+mail.allowUserSmtp / allowUserImap
+                Reserved switches for disabling per-user mail.
+features.*      UI-level feature flags kept in sync with the app toggles.
+security.sessionDays
+                Session lifetime. Default 14, applied at sign-in.
+security.allowSignups
+                Reserved. Accounts are created by admins only in 1.0.
+security.trustProxy
+                Reserved; the server reads X-Forwarded-For and -Proto when
+                present.
+
+Environment
+-----------
+CC_CONFIG       Absolute path to config.json. The server falls back to
+                ./config.json in the working directory.
+CC_ADMIN_PASSWORD
+                Only read by the installer, for non-interactive setups. Not
+                stored in the environment afterwards.
+
+Per-user settings (mail server, assistant key, weather) are stored in the
+database, not in config.json. Assistant keys are never returned to the browser.
+appearance lives in "branding" plus "name"; everything else in this file is
+server behaviour.
+
+Where to change it
+------------------
+Admin -> Personalization  product name, word, accent, logo.
+Admin -> Config           organization, publicUrl, storage, limits, features,
+                          editor.
+Admin -> Apps / Store     install an app or a widget (type widget).
+CLI                       coolcloud --config edit (restart afterwards).
+
+Note on publicUrl and https
+---------------------------
+A bare host becomes http://. If you are behind a TLS proxy, type the https://
+URL once, not before: a certificate must answer first. After changing it,
+restart so the office container is recreated with the new frame ancestors.

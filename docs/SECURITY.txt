@@ -1,0 +1,99 @@
+SECURITY
+========
+
+What CoolCloud does
+-------------------
+Passwords
+  scrypt with N=16384, r=8, p=1 and a 16-byte random salt per user. Hashes are
+  compared in constant time. Passwords are never logged or returned.
+
+Sessions
+  256-bit random tokens, stored as SHA-256 hashes in SQLite. Cookie is
+  HttpOnly, SameSite=Strict, Path=/, and Secure when the request arrives over
+  https. Sessions expire after security.sessionDays (default 14). Admins can
+  revoke all sessions for an account, and changing a password revokes them.
+
+CSRF
+  State-changing requests with an Origin header must match the Host. Bearer
+  requests from the CLI have no Origin and are allowed. The cookie is not
+  readable by JavaScript.
+
+File paths
+  Every requested path is resolved inside data/files. "../" escapes and
+  absolute paths are rejected before any read or write. Third-party app assets
+  are likewise confined to their own folder.
+
+Admin surfaces
+  Users, server configuration, logs, system file preview, app installation,
+  registries and office provisioning are checked server-side with role=admin.
+  The UI hiding a button is not the security boundary.
+
+Mail
+  SMTP/IMAP credentials are stored in the database and never returned to the
+  browser (only a hasPassword boolean). Mail is sent from the server directly to
+  the configured server; CoolCloud does not proxy through a third party.
+
+Assistant
+  The API key is stored server-side, never sent to the browser, and used only
+  by the server-side proxy. Transcripts are not stored.
+
+Connect
+  Message bodies are encrypted in the browser with AES-GCM 256 and a key derived
+  from the room passphrase with PBKDF2-SHA256 (120k iterations). The server
+  stores ciphertext. Calls use WebRTC, so audio and video flow peer to peer
+  (DTLS-SRTP), not through CoolCloud.
+
+Realtime
+  /ws verifies the session before the WebSocket handshake. Cross-origin
+  upgrades are not accepted. Realtime is disabled when the Connect app is off.
+
+What CoolCloud does NOT do (read this)
+--------------------------------------
+* No multi-factor authentication in 1.0.
+* Failed logins are throttled in memory per IP; there is no account lockout and
+  no distributed rate limiting. Put a reverse proxy in front for strict limits.
+* No encryption at rest. Anyone with the data folder can read files and the
+  database. Use disk encryption (LUKS, BitLocker) and protect backups.
+* Files is a shared drive: every signed-in user can read and change every file.
+  There is no per-file ACL in 1.0.
+* Third-party apps are trusted code. They run same-origin and can call the API
+  as the user viewing them. Install only apps you have reviewed. There is no
+  signed-app verification.
+* Connect room passphrases are shared out of band and stored in localStorage.
+  Someone with the passphrase and the ciphertext can read the room. There is no
+  key rotation.
+* WebRTC uses a public STUN server. Peers learn each other's public IP. For
+  strict privacy, self-host coturn and replace the iceServers list in
+  web/js/apps/connect.js.
+* Office documents open through a signed WOPI token bound to one file path and
+  one user, valid for 8 hours (see EDITOR-OFFICE.txt). The office container is
+  bound to 127.0.0.1 and must not be published directly; put it behind the same
+  TLS proxy as CoolCloud if it ever needs to be remote.
+* There is no per-document permission model. Anyone who can open an office file
+  can edit it, because Files is a shared drive.
+* No antivirus scanning of uploads. Uploaded files are served with safe headers
+  and unknown types as application/octet-stream, but do not treat that as
+  content scanning.
+* No email SPF/DKIM handling; deliverability depends on your SMTP server.
+* System file search is admin-only and read-only in the UI, but admins are
+  trusted with the whole server anyway.
+
+Hardening checklist
+-------------------
+1. Serve only over HTTPS. Set publicUrl to the https URL.
+2. Bind 127.0.0.1 when a reverse proxy is in front, and block 8080 at the
+   firewall.
+3. Use long, unique admin passwords; disable accounts you do not use.
+4. Keep Node.js and the OS patched. Restart after updates.
+5. Encrypt the disk and restrict the instance folder to the service user.
+6. Back up data/ and config.json, encrypt the backups, and test a restore.
+7. Install third-party apps only from sources you trust.
+8. If Connect matters, self-host a TURN server and change the STUN list.
+9. Review data/logs/error.log and Admin → Logs periodically.
+10. If a device or token is lost, Admin → Users → Revoke sessions.
+
+Reporting
+---------
+For a self-hosted deployment, you are the security team. Keep the instance
+patched, and treat every installed app as code running with your users'
+permissions.

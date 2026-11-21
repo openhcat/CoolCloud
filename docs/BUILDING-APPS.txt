@@ -1,0 +1,147 @@
+BUILDING APPS FOR COOLCLOUD
+===========================
+
+An app is a folder with a manifest.json and a web page. No framework, build
+step or npm package is required — though you can use one if you bundle the
+output yourself.
+
+Minimum viable app
+------------------
+    my-notes/
+      manifest.json
+      web/
+        index.html
+        app.js
+        app.css
+
+manifest.json:
+
+    {
+      "id": "acme:notes",
+      "name": "Notes",
+      "developer": "acme",
+      "version": "1.0.0",
+      "description": "Shared notes for the team.",
+      "icon": "fa-solid fa-note-sticky",
+      "accent": "editor",
+      "entry": "web/index.html",
+      "permissions": ["files:read", "files:write"]
+    }
+
+The `id` must be `developer:name` in lower case. `icon` is a Font Awesome
+class. `accent` picks a tint from the design system (files, calendar, mail,
+contacts, editor, tasks, connect, media, assistant).
+
+Full field reference: APP-MANIFEST.txt.
+
+How it runs
+-----------
+Installed apps are copied into <instance>/data/apps/<developer>/<name>/ and
+served at:
+
+    /app-assets/<developer>/<name>/<entry>
+
+CoolCloud opens that URL in a tab iframe. It is the same origin as the rest of
+the suite, so:
+
+* the session cookie is sent automatically;
+* you can call /api/* with fetch(..., { credentials: 'same-origin' });
+* you can load /css/tokens.css, /css/components.css and /vendor/fa/css/all.min.css.
+
+There is no token to manage and no SDK to install.
+
+Widgets
+-------
+Set "type": "widget" in manifest.json (or install with
+`coolcloud --install acme:clock !type=widget`) and the same app becomes a home
+page widget instead of a tab:
+
+* it is not listed in the sidebar, the tab strip or the app drawer's app list;
+* users add it from Home -> Add widget, after which its entry page renders in a
+  widget card iframe (type widget, recommended height 210px);
+* the store shows a widget badge, and the install forms offer "Install as
+  widget", so authors do not need a separate package format;
+* widget pages should be compact and work in a 300-500px wide card. Use the
+tokens in /css/tokens.css and keep the page background transparent so the card
+  glass shows through.
+
+Read the API
+------------
+GET /api/auth/session returns the signed-in user and enabled apps.
+Everything else is documented in API.txt. Examples:
+
+    const response = await fetch('/api/files?path=projects');
+    const { entries } = await response.json();
+
+    await fetch('/api/files/text', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'projects/plan.md', content: '# Plan' })
+    });
+
+Match the interface
+-------------------
+Use the design system rather than inventing a look:
+
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+
+    <section class="card">
+      <div class="card-head">
+        <span class="card-title"><i class="fa-solid fa-note-sticky"></i> Notes</span>
+        <button class="btn primary sm">New note</button>
+      </div>
+      ...
+    </section>
+
+Rules of thumb
+* Use var(--surface), var(--border), var(--text) — never hard-coded colours.
+* One primary action per view; everything else quiet or ghost.
+* Use the spacing scale (4, 8, 12, 16, 20, 24, 32, 40).
+* No gradients, glass panels, emoji icons, or drop shadows on flat cards.
+* Respect prefers-reduced-motion; the tokens zero out durations for you.
+* Every form field gets a label. Every icon-only button gets aria-label.
+Read DESIGN-SYSTEM.txt for the reasoning and the component list.
+
+Install while developing
+------------------------
+    # from the repo, into a running instance (admin only)
+    coolcloud --login
+    coolcloud --install acme:notes dir=./my-notes
+
+The copy is made on the server machine. For a local instance that is the same
+machine, which is the normal development loop. After editing files, install
+again (or copy into <instance>/data/apps/acme/notes/ and reload the tab).
+
+Drop-in install without the CLI:
+
+    cp -r ./my-notes <instance>/data/apps/acme/notes
+    coolcloud --install acme:notes
+
+CoolCloud scans data/apps on startup, so a restart also picks it up.
+
+Ship it
+-------
+1. Put the folder in a git repository whose root contains manifest.json.
+2. Tag a version that matches `version` in the manifest.
+3. Add it to a registry (APPSTORE-REGISTRY.txt) or share the repo URL.
+4. Admins install it from Admin → App Store, or with --install.
+
+Security model
+--------------
+An app runs with the permissions of the user viewing it. There is no sandbox
+between an installed app and the API. Treat installing an app like installing
+software on the server: review it first, and only give admin install rights to
+people you trust.
+
+Do not:
+* ship secrets or API keys in web/ (anyone can read them);
+* call external services with data the user did not intend to share;
+* write to another user's records.
+
+Selling points of the platform
+------------------------------
+* One session, one design language, no bundler.
+* Apps are plain folders — easy to audit, easy to fork.
+* The same HTTP API the first-party apps use is public to apps.

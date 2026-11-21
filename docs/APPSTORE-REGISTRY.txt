@@ -1,0 +1,85 @@
+APP STORE REGISTRIES
+====================
+
+CoolCloud has no central app store. Admins add one or more registry URLs that
+return JSON; each entry points at a git repository.
+
+Flow
+----
+1. Admin → App Store → Add registry, paste a URL.
+2. The server fetches and validates the JSON, then caches it.
+3. Install clones the repository with `git clone --depth 1`, reads its
+   manifest.json and enables the app.
+
+Adding a registry by CLI: there is no CLI command for registries in 1.0; use
+the admin UI. Installing an app from a registry by CLI:
+
+    coolcloud --install acme:notes
+
+Format
+------
+{
+  "schema": "coolcloud.registry/1",
+  "name": "Acme Apps",
+  "description": "Internal apps for Acme.",
+  "maintainer": "it@acme.example",
+  "updated": "2026-11-20",
+  "apps": [
+    {
+      "id": "acme:notes",
+      "name": "Notes",
+      "developer": "acme",
+      "version": "1.2.0",
+      "description": "Shared notes for the team, stored in Files.",
+      "icon": "fa-solid fa-note-sticky",
+      "accent": "editor",
+      "repo": "https://github.com/acme/coolcloud-notes.git",
+      "tags": ["notes", "collaboration"]
+    }
+  ]
+}
+
+Required per app: id, name, repo.
+Optional: developer, version, description, icon, accent, tags, branch.
+
+Rules the server enforces
+-------------------------
+* The URL must be http:// or https://.
+* The response must be JSON with an `apps` array.
+* Every app needs id, name and repo; repos must be http(s) or ssh git URLs.
+* Installation is admin-only and happens on the server, so the server needs
+  git installed and network access to the repository.
+* There is no signature or reputation system. A registry is a list of code you
+  choose to trust.
+
+Hosting your own registry
+-------------------------
+Any static host works. GitHub Pages, S3, nginx:
+
+    # registry.json from a static folder
+    location = /coolcloud-registry.json {
+        add_header Content-Type application/json;
+        root /var/www/registry;
+    }
+
+Or serve it from this repository:
+
+    python3 -m http.server 8099
+    # Add http://localhost:8099/appstore/registry.json in Admin → App Store
+
+Do not put credentials, tokens or private URLs in a public registry file.
+
+Private registries
+------------------
+The server fetches registry URLs without credentials in 1.0. For a private
+catalogue, put the JSON behind an unguessable URL on your LAN, or vendor the
+apps into your own instance and install from folders with `dir=`.
+
+Publishing guidance
+-------------------
+* Keep manifest.json and the .git repository root aligned.
+* Tag releases; set `version` to match.
+* Include a README.txt in the repo with setup and data notes.
+* State clearly which API endpoints your app uses.
+* Never ship secrets in web/ — everything there is readable by any user who
+  opens the app.

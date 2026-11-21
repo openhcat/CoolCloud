@@ -1,0 +1,198 @@
+COOLCLOUD DESIGN SYSTEM
+=======================
+
+The interface should feel like a product made by people for a purpose, not a
+template with a product name dropped in. These are the rules that keep it that
+way.
+
+Principles
+----------
+1. One accent, used to mean something. Blue means action and current selection.
+   Nothing else is decorative. The accent is an instance setting, not a
+   hard-coded colour (see Branding below).
+2. Colour carries role, not mood. Every surface, line and status has a token
+   with a job. The only gradient in the product is the page backdrop itself:
+   one wash from top to bottom, never a blob, a glow or a mesh.
+3. Hierarchy comes from type and space, not boxes. Prefer a heading and rhythm
+   over another bordered card.
+4. Light comes through. The page has one backdrop; the sidebar and top bar sit
+   on it with no fill at all, and content panels are translucent so the wash
+   still reads behind them. A border or a shadow defines an edge, not both.
+5. Density varies. Dashboards have a large serif greeting, compact data rows
+   and generous empty states. Uniform cards on a grid are a tell.
+6. Icons label actions. Font Awesome is used at 11-16px, consistently, and
+   never as decoration in a coloured tile when a label would do.
+
+Things this system deliberately does NOT do
+-------------------------------------------
+* Purple/indigo gradients, gradient headline text, glowing borders.
+* Frosted boxes for their own sake. Glass is the frame and the panels that
+  float over the backdrop; the content inside them stays flat.
+* Blurred blobs, mesh gradients, neon-on-dark "premium" palettes.
+* Emoji as icons or illustration.
+* An all-caps eyebrow above every heading.
+* A tinted rounded square icon on every card, repeated in a three-card grid.
+* Hairline border plus a wide soft shadow on the same card.
+* Thick coloured stripes down the side of ordinary content.
+* Low-contrast grey text on slightly-less-grey backgrounds.
+
+Typography
+----------
+--font-ui       Inter Variable, for the interface and body copy.
+--font-display  Inter Variable as well. Headings and large numerals use tight
+                tracking and 600-620 weight instead of a second typeface. One
+                family reads more institutional than a serif/sans mix.
+--font-mono     System monospace, for paths, sizes, timestamps, logs and data.
+
+Scale: 11 / 11.5 / 12.5 / 13.5 / 16 / 20 / 24 / 28 / 42 (display).
+Rules: headings 600-620 weight with -0.02 to -0.03em tracking; body 1.5
+line-height; labels 12px 550 weight; metadata in mono at 10.5-11.5px. Never
+fake emphasis with a second accent colour.
+
+Colour tokens
+-------------
+Primitive -> semantic. Never use a hex in a component.
+
+Surfaces   --bg, --bg-deep, --surface, --surface-2, --surface-3
+Text       --text, --text-2, --text-3, --text-inverse
+Lines      --border, --border-strong, --focus
+Action     --accent, --accent-hover, --accent-soft, --accent-ink, --accent-line
+           --accent is written at runtime from config.branding.accent. The other
+           four are derived with color-mix() so a new accent never needs a
+           second palette.
+Status     --danger(-soft/-line), --warn(...), --ok(...), --info(...)
+App tints  --app-files, --app-calendar, --app-mail, --app-contacts,
+           --app-editor, --app-tasks, --app-connect, --app-media,
+           --app-assistant
+
+Light mode is a daylight sky: --backdrop runs #dce8f5 at the top through
+#f3f8fd and back to #e4eef8, panels are white at 68%, and the ink is navy
+(#0f2437). Dark mode drops the same wash to #081625 - #0f2a42 with a #e9f1f9
+ink and #a7bccf for secondary text. Blue (#0b5fb0) is the default accent; a
+7-swatch palette in Admin -> Personalization replaces it, and --accent-ink
+switches between near-black and white by luminance so labels stay legible on
+any choice.
+
+Chrome has no box. The sidebar and the top bar are transparent and sit
+directly on the backdrop: no fill, no divider, no blur behind them. Only
+hovered rows, the selected tab and the pinned list pick up a soft panel. The
+page itself carries the colour, not the furniture.
+
+Material
+--------
+--backdrop     the page: one vertical blue wash, light and dark.
+--panel        content panels and sheets (glass).
+--panel-strong menus, modals, the drawer, inputs that hold typed text.
+--panel-soft   hover rows, secondary sheets, table heads.
+--panel-border the translucent 1px edge every glass surface shares.
+--glass        saturate(150%) blur(18px); floating layers and content only,
+               never the chrome. --surface stays solid white so controls that
+               must stay crisp (buttons, inputs) never rely on a blur.
+
+Shape
+-----
+Radii: --r-xs 4, --r-sm 6, --r-md 9, --r-lg 12, --r-xl 16, --r-full 999.
+Tighter than a consumer app on purpose: 9px is the house radius for controls,
+12px for panels, 16px for modals. `corner-shape: squircle` is used only where a
+panel is large enough for it to read.
+
+Identity
+--------
+The wordmark is a plate, not an icon. C, an infinity and L sit on one line
+with the product word beside them, all on a dark blue rectangle with a 7px
+radius: C ∞ L Cloud. There is no glyph square, no tagline and no second
+mark. The plate is a darker shade of the accent (60% accent, 40% near-black),
+so the identity moves with Personalization instead of fighting it. A custom
+image replaces the whole plate. The infinity alone becomes the favicon: a
+dark blue rounded square with a white loop. Admin -> Personalization owns the
+product name, word, accent and logo; the shell re-paints without a reload.
+
+Navigation
+----------
+The sidebar is not an app list. The plate and the 30px home chip open Home;
+the sidebar itself carries Search, Activity and All apps, then the apps the
+user pinned, then the account. Pinning is per user (prefs.pinnedApps) and
+happens from the app drawer, so a fresh account gets a short default set
+(files, calendar, mail, connect) and nothing else. The full catalogue always
+lives behind All apps, which is grouped into Pinned, Recent, Apps, Widgets,
+Go to and Administration, with arrow-key movement and Enter to open.
+
+Home is a view, not a tab. openTab('home') always activates the single
+permanent home tab, the tab strip never lists or closes it, and closing the
+last document tab falls back to Home. Users cannot create a second Home tab.
+Installed widgets (manifest type widget) are not apps: they never appear in the
+sidebar or tab strip, only in Home -> Add widget and in the store.
+
+Spacing
+-------
+4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 56 (--s-1 … --s-9).
+Page padding 26-30px, card padding 18-20px, control gaps 8px, section gaps 22px.
+
+Elevation
+---------
+--shadow-sm   pressed/selected chips, inputs on surfaces
+--shadow-md   popovers, menus
+--shadow-lg   modals and the app drawer
+Cards use a 1px border and no shadow.
+
+Motion
+------
+--t-fast 120ms, --t 180ms, --t-slow 320ms, --ease cubic-bezier(.2,.75,.2,1).
+Motion explains cause and effect only: tab changes, drawer, modal, hover.
+prefers-reduced-motion collapses durations to 0 via the token layer.
+
+Components
+----------
+Buttons      .btn .primary .quiet .ghost .danger .sm .lg .icon
+Inputs       .input .textarea .select .field .label .hint .input-group
+Selection    .check .switch .segmented
+Containers   .card .widget .file-table .modal .menu
+Chrome       .brand-lockup .nav-item .pinned-nav .tab .app-drawer
+Feedback     .badge .toast .note .empty .progress .spinner .skeleton
+Identity     .avatar .app-icon .file-ico .contact-avatar
+Data         .table .kv .stat-card .mini-stat
+
+States
+------
+Every interactive element has hover, focus-visible, active and disabled.
+Focus is a 2px --focus outline with 2px offset, never removed. Disabled controls
+drop to 45% opacity. Loading states use .spinner or .skeleton, never a blank
+screen.
+
+Layout
+------
+Sidebar 244px (Search, Activity, All apps, Pinned, then the account), topbar
+54px. A 72px icon rail replaces the sidebar when collapsed; the choice persists
+in localStorage. The tab strip starts with a pinned 30px home chip, then the
+open document tabs. The chip lights up when Home is active but is not itself a
+closable tab.
+
+Home is a centered dashboard: the greeting, clock, weather and search form one
+centered column, and the widget bento (12 columns, spans 3-12) follows. Every
+widget can be reordered, resized or removed from Customize home (saved in
+prefs.homeWidgets), and added widgets include installed widget apps.
+
+Content max-width 1360px with 26-30px padding. Apps that own the screen
+(Viewer, Connect, third-party apps) render full-bleed: the shell toggles
+.content.flush and the app is responsible for its own bar and scroll area.
+
+Activity is a right-hand panel (392px) opened from the sidebar bell, with an
+unread badge and a two-tone chime for new entries. Below 940px the sidebar
+becomes an off-canvas panel; below 620px grids collapse to one column.
+
+Accessibility
+-------------
+* Never communicate status with colour alone; pair with text or an icon.
+* Icon-only buttons need aria-label. Tabs use role="tab" and aria-selected.
+* Modals are labelled, close on Escape and return focus sensibly.
+* Aim for 4.5:1 body contrast and 3:1 for control borders in both themes.
+* Do not disable zoom or use fixed pixel font sizes instead of the scale.
+
+Using it in an app
+------------------
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+
+Then compose with the classes above. If a new pattern is needed, add a token
+first and a component second — do not hard-code a one-off colour or radius.

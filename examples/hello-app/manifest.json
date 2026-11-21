@@ -1,0 +1,11 @@
+{
+  "id": "example:hello",
+  "name": "Hello",
+  "developer": "example",
+  "version": "1.0.0",
+  "description": "A minimal CoolCloud app: lists your Files and looks like the rest of the suite.",
+  "icon": "fa-regular fa-hand",
+  "accent": "contacts",
+  "entry": "web/index.html",
+  "permissions": ["files:read"]
+}

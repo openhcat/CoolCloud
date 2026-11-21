@@ -1,0 +1,33 @@
+{
+  "name": "CoolCloud",
+  "short_name": "CoolCloud",
+  "description": "Your files, calendar, tasks, mail and conversations in one private workspace.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#f4f7fa",
+  "theme_color": "#0b5fb0",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Files", "url": "/?app=files", "description": "Browse and upload files" },
+    { "name": "Calendar", "url": "/?app=calendar", "description": "Your schedule" },
+    { "name": "Tasks", "url": "/?app=tasks", "description": "What needs doing" }
+  ]
+}

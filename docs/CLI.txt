@@ -1,0 +1,124 @@
+COOLCLOUD CLI
+=============
+
+Two CLIs exist:
+
+1. The bundled Node CLI (bin/coolcloud.js) — installer and local control.
+2. The standalone Python CLI (cc-cli/coolcloud.py) — one file, remote only.
+
+Both are optional. The installer can install a launcher for the Python CLI.
+
+Bundled CLI
+-----------
+Run from the repository, or from an instance folder (it ships inside):
+
+    ./coolcloud --help
+    node bin/coolcloud.js --help          # Windows equivalent of ./coolcloud
+
+Installer
+    coolcloud --install
+        ASCII setup: install folder, storage, accounts, admin, Essentials Pack,
+        optional CLI, then writes and starts the instance.
+
+    Non-interactive (CI or scripts):
+    coolcloud --install --yes --dir=/opt/coolcloud --storage=unlimited \
+      --users=unlimited --admin-user=admin --admin-pass='a-long-password' \
+      --essentials=yes --cli=yes --port=8080
+
+    --storage=<GB|unlimited>   storage cap for the instance
+    --users=<number|unlimited> maximum accounts
+    --org="Acme Collective"    organization name captured during setup
+    --org-domain=acme.example  optional organization domain
+    --essentials=yes|no        Connect, Media and Assistant
+    --cli=yes|no               install a launcher for the Python CLI
+    --start=yes|no             start after installing
+
+Start and inspect
+    coolcloud --start [--dir=/path/to/instance]
+    coolcloud --status
+    coolcloud --config show | edit [editor] | path
+
+Remote session
+    coolcloud --login [--server=http://host:8080] [--user=sam]
+    coolcloud --logout
+
+Apps (admin only)
+    coolcloud --install cc:files
+        Core app; reports that it is already installed.
+
+    coolcloud --install acme:notes
+        Looks for the app in the server's configured registries and clones it.
+
+    coolcloud --install acme:notes dir=./my-notes
+        Copies a local folder. The folder must exist on the machine running the
+        server, and must contain manifest.json.
+
+    coolcloud --install acme:clock !type=widget
+        Installs it as a home widget. The type is written into the manifest, so
+        later app syncs keep it. Widgets render inside a home widget card, never
+        as a tab, and appear in Home -> Add widget once installed.
+
+        You can also install as a widget from the UI: App Store -> install from
+        git -> "Install as widget", or Admin -> Apps -> Install from git.
+
+Accounts (admin only)
+    coolcloud --users list
+    coolcloud --users add sam password=secret name="Sam Lee" email=sam@example.com
+    coolcloud --users add sam password=secret role=admin
+    coolcloud --users passwd sam
+    coolcloud --users disable sam
+    coolcloud --users enable sam
+    coolcloud --users remove sam
+
+Documents
+    coolcloud --doc list [folder]
+    coolcloud --doc new notes.md
+    coolcloud --doc cat notes.md
+    coolcloud --doc edit notes.md
+    coolcloud --doc rm notes.md
+
+`--doc edit` downloads the file to a temporary path and opens $VISUAL, $EDITOR,
+nano, vim or notepad (first one found), then uploads it if it changed. Pass an
+editor explicitly:
+
+    coolcloud --doc edit notes.md editor=vim
+    coolcloud --config edit vim
+
+Config editing
+--------------
+`--config edit` uses, in order: the editor you pass, $VISUAL, $EDITOR, nano,
+vim, vi, then notepad on Windows. It edits the local instance config only —
+configuration on a remote server is edited by an administrator in Admin → Config.
+
+Standalone Python CLI
+---------------------
+Requirements: Python 3.8+, no packages.
+
+    python3 cc-cli/coolcloud.py --login
+    python3 cc-cli/coolcloud.py --status
+    python3 cc-cli/coolcloud.py --install acme:notes
+    python3 cc-cli/coolcloud.py --install acme:notes dir=./my-notes
+    python3 cc-cli/coolcloud.py --install acme:clock !type=widget
+    python3 cc-cli/coolcloud.py --users add sam password=...
+    python3 cc-cli/coolcloud.py --doc edit documents/plan.md
+    python3 cc-cli/coolcloud.py --config edit
+
+Session file
+------------
+The CLI stores the server URL, a session token and your user in
+~/.coolcloud/cli.json with mode 0600. `--logout` removes it.
+
+Troubleshooting
+---------------
+"Cannot reach the server"
+    Check the URL includes http:// or https:// and the port, e.g.
+    http://192.168.1.20:8080. Confirm /health answers.
+
+"Administrator access required"
+    Only admins can install apps and manage users. Sign in with an admin.
+
+"git clone failed"
+    Install git on the server machine, or install from a folder with dir=.
+
+"dir=… does not exist"
+    The path is resolved on the server machine, not on your laptop.
