@@ -5,7 +5,7 @@
 CoolCloud is a self-hosted collaboration suite: files, calendar, mail, contacts, an editor and tasks in one place, on your own hardware, under your own accounts. No seat licensing, no outsourced storage, no surprise.
 
 ```bash
-git clone https://github.com/yourname/coolcloud.git
+git clone https://github.com/openhcat/coolcloud/coolcloud.git
 cd coolcloud
 chmod +x coolcloud            # Linux; on Windows use coolcloud.cmd
 node bin/coolcloud.js --install
