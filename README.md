@@ -1,4 +1,5 @@
 # CoolCloud
+<img width="1904" height="928" alt="image" src="https://github.com/user-attachments/assets/bfd25aa3-6dd7-4d6b-b242-56b1ceca3c76" />
 
 **Your own cloud. One install, every tool your team needs.**
 
