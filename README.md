@@ -6,7 +6,7 @@
 CoolCloud is a self-hosted collaboration suite: files, calendar, mail, contacts, an editor and tasks in one place, on your own hardware, under your own accounts. No seat licensing, no outsourced storage, no surprise.
 
 ```bash
-git clone https://github.com/openhcat/coolcloud/coolcloud.git
+git clone https://github.com/openhcat/CoolCloud.git
 cd coolcloud
 chmod +x coolcloud            # Linux; on Windows use coolcloud.cmd
 node bin/coolcloud.js --install
@@ -16,6 +16,14 @@ cd ~/coolcloud && ./start.sh  # Windows: start.cmd
 ```
 
 Then open `http://localhost:8080`.
+
+## Screenshots
+
+![CoolCloud dashboard](docs/screenshots/dashboard.png)
+
+| Files | Calendar |
+| --- | --- |
+| ![Files](docs/screenshots/files.png) | ![Calendar](docs/screenshots/calendar.png) |
 
 ---
 
@@ -47,7 +55,7 @@ Then open `http://localhost:8080`.
 **Requirements:** Linux or Windows with Node.js 24+ (and Python 3.8+ only if you want the standalone remote CLI).
 
 ```bash
-git clone https://github.com/yourname/coolcloud.git
+git clone https://github.com/openhcat/CoolCloud.git
 cd coolcloud
 node bin/coolcloud.js --install
 ```
