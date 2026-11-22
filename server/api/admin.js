@@ -386,6 +386,8 @@ export function registerAdmin(router) {
         categories: payload.categories || [],
         apps: apps.map((app) => ({
           ...app,
+          enterpriseOnly: Boolean(app.enterprise),
+          contact: app.contact || 'https://coolcloud.odoo.com/contactus',
           installed: installed.has(app.id),
           enabled: installed.get(app.id)?.enabled || false
         }))
@@ -492,6 +494,13 @@ export function registerAdmin(router) {
     if (!entry) {
       return sendJson(ctx.res, 400, {
         error: 'That app is not in any registry. Refresh the store, or install from a folder or git URL instead.'
+      });
+    }
+    if (entry.enterprise) {
+      return sendJson(ctx.res, 400, {
+        error: `That app is Enterprise only. Get Enterprise for more apps: ${entry.contact || 'https://coolcloud.odoo.com/contactus'}`,
+        code: 'enterprise',
+        contact: entry.contact || 'https://coolcloud.odoo.com/contactus'
       });
     }
     const type =

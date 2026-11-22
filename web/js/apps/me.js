@@ -1,5 +1,5 @@
 import { api, applyTheme, esc, fmtDate, icon, initials, openModal, readTheme, state, toast } from '../core.js';
-import { openTab } from '../shell.js';
+import { applySidebarPrefs, openTab } from '../shell.js';
 
 export default function mount(root, ctx) {
   const user = state.user;
@@ -78,6 +78,18 @@ export default function mount(root, ctx) {
         </section>
 
         <section class="widget">
+          <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-table-columns')} Sidebar &amp; edition</span></div>
+          <div class="stack-3">
+            <label class="check"><input type="checkbox" data-sidebar-pref="railDefault" ${user.prefs?.railDefault === false ? '' : 'checked'} />
+              <span><span class="strong small">Keep the sidebar minimized</span><span class="tiny dim" style="display:block">It opens while you hover, and you can pin it open from the top bar.</span></span></label>
+            <label class="check"><input type="checkbox" data-sidebar-pref="railHover" ${user.prefs?.railHover === false ? '' : 'checked'} />
+              <span><span class="strong small">Expand on hover</span><span class="tiny dim" style="display:block">Show labels and the edition badge when the pointer is over the sidebar.</span></span></label>
+            <label class="check"><input type="checkbox" data-sidebar-pref="editionBadge" ${user.prefs?.editionBadge === false ? '' : 'checked'} />
+              <span><span class="strong small">Show the Community/Enterprise badge</span><span class="tiny dim" style="display:block">Links to the Enterprise page for more apps.</span></span></label>
+          </div>
+        </section>
+
+        <section class="widget">
           <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-lock')} Password</span></div>
           <form id="password-form" class="stack-3">
             <div class="field"><label class="label">Current password</label><input class="input" type="password" name="current" required autocomplete="current-password" /></div>
@@ -101,6 +113,24 @@ export default function mount(root, ctx) {
   </div>`;
 
   root.querySelector('#to-admin')?.addEventListener('click', () => openTab('admin'));
+
+  root.querySelectorAll('[data-sidebar-pref]').forEach((input) =>
+    input.addEventListener('change', async () => {
+      const prefs = {};
+      root.querySelectorAll('[data-sidebar-pref]').forEach((node) => {
+        prefs[node.dataset.sidebarPref] = node.checked;
+      });
+      try {
+        const result = await api('/api/me', { method: 'PATCH', body: { prefs } });
+        state.user = result.user;
+        ctx.user = result.user;
+        applySidebarPrefs();
+        toast('Sidebar preference saved');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    })
+  );
   let security = null;
 
   root.querySelector('#profile-form').addEventListener('submit', async (event) => {

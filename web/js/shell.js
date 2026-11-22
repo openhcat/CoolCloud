@@ -153,6 +153,14 @@ export function shellMarkup() {
   return `<div class="shell" id="shell">
     <aside class="sidebar" id="sidebar">
       <button class="brand" id="brand" type="button" title="Home">${brandInner()}</button>
+      ${
+        state.user?.prefs?.editionBadge === false
+          ? ''
+          : `<a class="edition-badge" id="edition-badge" href="${esc(state.server?.website || 'https://coolcloud.odoo.com')}" target="_blank" rel="noopener noreferrer" title="Get Enterprise for more apps">
+              <i class="fa-solid fa-cloud"></i>
+              <span>${state.server?.edition === 'enterprise' ? 'Enterprise' : 'Community'} <b>v${esc(state.server?.release || '2.0.0')}</b></span>
+            </a>`
+      }
       <div class="sidebar-scroll">
         <nav class="nav" aria-label="Main">
           <button class="nav-item" data-nav="search" title="Search" aria-current="false">${icon(
@@ -243,6 +251,7 @@ export async function init() {
       organization: identity.organization || {},
       website: identity.website,
       edition: identity.edition,
+      release: identity.release || '',
       sso: identity.sso || {}
     };
     applyBranding(identity.branding, identity.name);
@@ -266,7 +275,7 @@ function afterLogin(session) {
   rootEl = document.getElementById('root');
   rootEl.innerHTML = shellMarkup();
   wireShell();
-  setRail(localStorage.getItem('cc:rail') === '1', { persist: false });
+  applySidebarPrefs();
   refreshNotifications({ silent: true });
   startPolling();
   // Home is a permanent view behind the home icon, never a closable tab.
@@ -276,6 +285,20 @@ function afterLogin(session) {
 }
 
 /* --------------------------------- chrome -------------------------------- */
+
+export function applySidebarPrefs() {
+  const prefs = state.user?.prefs || {};
+  const badge = document.getElementById('edition-badge');
+  if (badge) badge.style.display = prefs.editionBadge === false ? 'none' : '';
+  let stored = null;
+  try {
+    stored = localStorage.getItem('cc:rail');
+  } catch {
+    stored = null;
+  }
+  const wantRail = prefs.railDefault === undefined ? stored === null || stored === '1' : Boolean(prefs.railDefault);
+  setRail(wantRail, { persist: false });
+}
 
 function setRail(on, { persist = true } = {}) {
   const shell = document.getElementById('shell');
@@ -346,7 +369,25 @@ function wireShell() {
   });
 
   document.getElementById('collapse').addEventListener('click', () => {
-    setRail(!document.getElementById('shell').classList.contains('rail'));
+    const shell = document.getElementById('shell');
+    shell.dataset.railHover = '';
+    setRail(!shell.classList.contains('rail'));
+  });
+
+  /* A minimized sidebar opens on hover so the edition badge and labels can be
+     read without turning the rail off for good. */
+  const sidebar = document.getElementById('sidebar');
+  sidebar.addEventListener('mouseenter', () => {
+    const shell = document.getElementById('shell');
+    if (!shell.classList.contains('rail') || state.user?.prefs?.railHover === false) return;
+    shell.dataset.railHover = '1';
+    setRail(false, { persist: false });
+  });
+  sidebar.addEventListener('mouseleave', () => {
+    const shell = document.getElementById('shell');
+    if (shell.dataset.railHover !== '1') return;
+    shell.dataset.railHover = '';
+    setRail(true, { persist: false });
   });
   document.getElementById('search-btn').addEventListener('click', () => openPalette());
   document.getElementById('new-tab').addEventListener('click', openDrawer);

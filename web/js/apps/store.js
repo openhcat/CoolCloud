@@ -23,6 +23,7 @@ export default function mount(root, ctx) {
       </div>
       <div class="page-actions">
         <button class="btn quiet sm" id="back-admin">${icon('fa-solid fa-sliders')} Admin</button>
+        <button class="btn quiet sm" id="tour">${icon('fa-regular fa-circle-question')} How it works</button>
         <button class="btn quiet sm" id="refresh-store">${icon('fa-solid fa-rotate')} Refresh</button>
         <button class="btn primary sm" id="add-registry">${icon('fa-solid fa-link')} Add registry</button>
       </div>
@@ -52,6 +53,21 @@ export default function mount(root, ctx) {
     .store-chip[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600; }
     .store-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .store-empty { border:1px dashed var(--border-strong); border-radius:14px; padding:38px 18px; text-align:center; color:var(--text-3); font-size:13px; }
+    .store-drawer-scrim { position:fixed; inset:0; z-index:120; background:rgba(6,18,30,.42); display:flex; justify-content:flex-end; }
+    .store-drawer { width:min(410px,100%); height:100%; overflow:auto; background:var(--panel-strong); border-left:1px solid var(--panel-border); box-shadow:var(--shadow-lg); padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .store-drawer h2 { margin:0; font-size:18px; letter-spacing:-0.01em; }
+    .store-drawer .desc { margin:0; color:var(--text-2); font-size:13px; line-height:1.6; }
+    .store-drawer .kv-list { gap:8px; }
+    .store-drawer .kv { font-size:12.5px; }
+    .store-drawer .foot { display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:10px; border-top:1px solid var(--border); }
+    .store-tour { position:fixed; inset:0; z-index:130; background:rgba(6,18,30,.5); display:flex; align-items:center; justify-content:center; padding:18px; }
+    .store-tour-card { width:min(520px,100%); background:var(--panel-strong); border:1px solid var(--panel-border); border-radius:16px; box-shadow:var(--shadow-lg); padding:22px; }
+    .store-tour-card h2 { margin:0 0 4px; font-size:19px; letter-spacing:-0.01em; }
+    .store-tour-card .step { display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--border); font-size:12.5px; }
+    .store-tour-card .step:first-of-type { border-top:0; }
+    .store-tour-card .step b { display:block; font-size:12.5px; }
+    .store-tour-card .step span { color:var(--text-3); font-size:12px; line-height:1.5; }
+    .store-tour-card .actions { display:flex; justify-content:space-between; gap:8px; margin-top:16px; flex-wrap:wrap; }
   </style>`;
 
   const body = root.querySelector('#store-body');
@@ -155,14 +171,17 @@ export default function mount(root, ctx) {
                         ${app.essentials ? '<span class="badge accent">essentials</span>' : ''}
                         ${app.beta ? '<span class="badge">beta</span>' : ''}
                         ${app.type === 'widget' ? '<span class="badge">widget</span>' : ''}
+                        ${app.enterpriseOnly || app.enterprise ? '<span class="badge" style="border-color:var(--accent-line);color:var(--accent)">ENTERPRISE ONLY</span>' : ''}
                       </div>
                       <div class="foot">
                         ${
                           app.installed
                             ? `<span class="badge ok">${icon('fa-solid fa-check')} Installed</span>`
-                            : `<button class="btn primary sm" data-install="${esc(app.id)}" data-type="${esc(app.type || 'app')}">${icon('fa-solid fa-download')} Install</button>`
+                            : app.enterpriseOnly || app.enterprise
+                              ? `<a class="btn quiet sm" href="${esc(app.contact || 'https://coolcloud.odoo.com/contactus')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Contact us</a>`
+                              : `<button class="btn primary sm" data-install="${esc(app.id)}" data-type="${esc(app.type || 'app')}">${icon('fa-solid fa-download')} Install</button>`
                         }
-                        <a class="btn ghost sm" href="${esc(data.publishGuide || '#')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-circle-info')} Details</a>
+                        <button class="btn ghost sm" data-details="${esc(app.id)}">${icon('fa-solid fa-circle-info')} Details</button>
                       </div>
                     </article>`
                   )
@@ -280,6 +299,13 @@ export default function mount(root, ctx) {
   }
 
   function wire() {
+    body.querySelectorAll('[data-details]').forEach((node) =>
+      node.addEventListener('click', () => {
+        const registry = activeRegistry();
+        const app = (registry?.apps || []).find((item) => item.id === node.dataset.details);
+        if (app) showDetails(app);
+      })
+    );
     root.querySelectorAll('[data-tab]').forEach((node) => {
       node.onclick = () => {
         tab = node.dataset.tab;
@@ -441,6 +467,94 @@ export default function mount(root, ctx) {
     });
   }
 
+  function showDetails(app) {
+    const installed = data.installed.find((item) => item.id === app.id);
+    const permissions = installed?.permissions || app.permissions || [];
+    const scrim = document.createElement('div');
+    scrim.className = 'store-drawer-scrim';
+    scrim.innerHTML = `<aside class="store-drawer" role="dialog" aria-modal="true" aria-label="${esc(app.name)} details">
+      <div class="spread" style="align-items:flex-start">
+        <div class="row" style="gap:10px;min-width:0">
+          <span class="app-icon" style="--app:var(--app-${esc(app.accent || 'files')})">${icon(app.icon || 'fa-solid fa-cube')}</span>
+          <div style="min-width:0"><h2>${esc(app.name)}</h2><div class="tiny dim mono">${esc(app.id)}</div></div>
+        </div>
+        <button class="btn ghost icon sm" data-close aria-label="Close details">${icon('fa-solid fa-xmark')}</button>
+      </div>
+      <p class="desc">${esc(app.description || 'No description yet.')}</p>
+      <div class="kv-list">
+        <div class="kv"><span class="k">Version</span><span class="v">v${esc(app.version || '1.0.0')}</span></div>
+        <div class="kv"><span class="k">Requires CoolCloud</span><span class="v">v${esc(app.minVersion || app.requires || '2.0.0')} or newer</span></div>
+        <div class="kv"><span class="k">Category</span><span class="v">${esc(app.category || 'Uncategorised')}</span></div>
+        <div class="kv"><span class="k">Kind</span><span class="v">${app.runtime === 'core' || app.builtin ? 'Core app' : app.type === 'widget' ? 'Widget' : 'External app'}</span></div>
+        <div class="kv"><span class="k">Permissions</span><span class="v">${permissions.length ? esc(permissions.join(', ')) : 'None'}</span></div>
+        <div class="kv"><span class="k">Registry</span><span class="v">${esc(activeRegistry()?.name || 'Official')}</span></div>
+      </div>
+      ${(app.tags || []).length ? `<div class="store-chips">${app.tags.map((tagName) => `<span class="badge">${esc(tagName)}</span>`).join('')}</div>` : ''}
+      <div class="foot">
+        ${
+          app.enterpriseOnly || app.enterprise
+            ? `<a class="btn primary sm" href="${esc(app.contact || 'https://coolcloud.odoo.com/contactus')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Get Enterprise</a><span class="badge">Enterprise only</span>`
+            : app.installed
+              ? `<span class="badge ok">${icon('fa-solid fa-check')} Installed</span>`
+              : `<button class="btn primary sm" data-detail-install="${esc(app.id)}" data-type="${esc(app.type || 'app')}">${icon('fa-solid fa-download')} Install</button>`
+        }
+        <a class="btn ghost sm" href="${esc(data.publishGuide || data.registryHome || '#')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-book')} Publishing guide</a>
+      </div>
+    </aside>`;
+    root.appendChild(scrim);
+    const close = () => scrim.remove();
+    scrim.addEventListener('click', (event) => {
+      if (event.target === scrim) close();
+    });
+    scrim.querySelector('[data-close]').addEventListener('click', close);
+    scrim.querySelector('[data-detail-install]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner"></span>';
+      try {
+        const result = await api('/api/admin/store/install', { method: 'POST', body: { id: app.id, type: button.dataset.type || '' } });
+        toast(`${result.app.name} installed`);
+        close();
+        await refreshSession();
+        load();
+      } catch (err) {
+        toast(err.message, 'error');
+        button.disabled = false;
+        button.textContent = 'Install';
+      }
+    });
+  }
+
+  function showTour() {
+    if (root.querySelector('.store-tour')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'store-tour';
+    overlay.innerHTML = `<div class="store-tour-card" role="dialog" aria-modal="true" aria-label="How the App Store works">
+      <h2>Welcome to the App Store</h2>
+      <p class="hint" style="margin:0 0 8px">A quick tour. You can skip it and open it again from “How it works”.</p>
+      <div class="step"><span class="badge accent">1</span><div><b>Browse the registry</b><span>Core apps, the Essentials Pack and community apps arrive from registries you choose.</span></div></div>
+      <div class="step"><span class="badge accent">2</span><div><b>Open Details</b><span>See the version, the CoolCloud release it needs, permissions and its tags before you install.</span></div></div>
+      <div class="step"><span class="badge accent">3</span><div><b>Install, then grant</b><span>An app only reads what you allow. Manage scopes from Installed at any time.</span></div></div>
+      <div class="step"><span class="badge accent">4</span><div><b>Enterprise apps</b><span>Marked ENTERPRISE ONLY. They ship with CoolCloud Enterprise; contact us to get them.</span></div></div>
+      <div class="actions"><button class="btn ghost" data-skip>Skip</button><button class="btn primary" data-done>Start exploring</button></div>
+    </div>`;
+    root.appendChild(overlay);
+    const close = () => {
+      try {
+        localStorage.setItem('cc:store-tour', '1');
+      } catch {
+        /* ignore */
+      }
+      overlay.remove();
+    };
+    overlay.querySelector('[data-skip]').addEventListener('click', close);
+    overlay.querySelector('[data-done]').addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+  }
+
+  root.querySelector('#tour').addEventListener('click', showTour);
   root.querySelector('#refresh-store').addEventListener('click', async () => {
     const button = root.querySelector('#refresh-store');
     button.disabled = true;
@@ -457,5 +571,13 @@ export default function mount(root, ctx) {
   root.querySelector('#add-registry').addEventListener('click', () => addRegistry());
   root.querySelector('#back-admin').addEventListener('click', () => openTab('admin'));
 
-  load();
+  load().then(() => {
+    let seen = false;
+    try {
+      seen = localStorage.getItem('cc:store-tour') === '1';
+    } catch {
+      seen = true;
+    }
+    if (!seen) showTour();
+  });
 }

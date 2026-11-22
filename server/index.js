@@ -14,6 +14,7 @@ import { registerMail } from './api/mail.js';
 import { registerAdmin } from './api/admin.js';
 import { attachConnect, registerExtras } from './api/extras.js';
 import { registerPublicForms, serveFormPage } from './forms.js';
+import { servePublishedSite } from './sitebuilder.js';
 import { registerOffice } from './api/office.js';
 import { registerStudio } from './api/studio.js';
 import { registerTeams } from './api/teams.js';
@@ -162,6 +163,11 @@ const server = http.createServer(async (req, res) => {
         },
         url
       );
+      return;
+    }
+
+    if (url.pathname.startsWith('/s/')) {
+      await servePublishedSite({ req, res, url, db, cfg });
       return;
     }
 

@@ -6,6 +6,9 @@ export const OFFICIAL_REGISTRY = 'https://raw.githubusercontent.com/openhcat/cc-
 export const REGISTRY_HOME = 'https://openhcat.github.io/cc-appregistry/';
 export const WEBSITE = 'https://coolcloud.odoo.com';
 
+/** The product release, from package.json (config.version is the config schema). */
+export const RELEASE = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+
 /** 'community' unless the tree carries an EDITION file that says enterprise. */
 function readEdition() {
   try {

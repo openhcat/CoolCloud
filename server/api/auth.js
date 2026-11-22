@@ -4,6 +4,7 @@ import { audit } from '../db.js';
 import { ipOf, sendJson } from '../http.js';
 import { listApps } from '../apps.js';
 import { nowISO } from '../util.js';
+import { RELEASE } from '../config.js';
 
 const attempts = new Map();
 const RATE_WINDOW = 5 * 60 * 1000;
@@ -48,7 +49,8 @@ export function registerAuth(router) {
       website: ctx.cfg.website || 'https://coolcloud.odoo.com',
       organization: ctx.cfg.organization || {},
       branding: ctx.cfg.branding || {},
-      version: ctx.cfg.version
+      version: ctx.cfg.version,
+      release: RELEASE
     });
   });
 
@@ -148,7 +150,8 @@ export function registerAuth(router) {
         features: ctx.cfg.features,
         editor: ctx.cfg.editor,
         appstore: ctx.cfg.appstore || {},
-        version: ctx.cfg.version
+        version: ctx.cfg.version,
+        release: RELEASE
       }
     });
   });

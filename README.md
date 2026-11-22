@@ -7,6 +7,8 @@ CoolCloud is a self-hosted collaboration suite: files, calendar, mail, contacts,
 
 **[coolcloud.odoo.com](https://coolcloud.odoo.com)** — the product site, editions and deployment help.
 
+**[Get Enterprise for more apps →](https://coolcloud.odoo.com/contactus)** — Helpdesk, Inventory, Uptime & Status, the full CRM and Finance, SSO and encryption at rest.
+
 ```bash
 git clone https://github.com/openhcat/CoolCloud-Community.git
 cd CoolCloud-Community
