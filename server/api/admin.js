@@ -387,7 +387,7 @@ export function registerAdmin(router) {
         apps: apps.map((app) => ({
           ...app,
           enterpriseOnly: Boolean(app.enterprise),
-          contact: app.contact || 'https://coolcloud.odoo.com/contactus',
+          contact: app.contact || 'mailto:coolcloud.getenterprise@hatcat.me',
           installed: installed.has(app.id),
           enabled: installed.get(app.id)?.enabled || false
         }))
@@ -498,9 +498,9 @@ export function registerAdmin(router) {
     }
     if (entry.enterprise) {
       return sendJson(ctx.res, 400, {
-        error: `That app is Enterprise only. Get Enterprise for more apps: ${entry.contact || 'https://coolcloud.odoo.com/contactus'}`,
+        error: `That app is Enterprise only. Get Enterprise for more apps: ${entry.contact || 'mailto:coolcloud.getenterprise@hatcat.me'}`,
         code: 'enterprise',
-        contact: entry.contact || 'https://coolcloud.odoo.com/contactus'
+        contact: entry.contact || 'mailto:coolcloud.getenterprise@hatcat.me'
       });
     }
     const type =

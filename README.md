@@ -5,9 +5,9 @@
 
 CoolCloud is a self-hosted collaboration suite: files, calendar, mail, contacts, an editor, tasks and the apps your team actually works in, all on your own hardware under your own accounts. No seat licensing, no outsourced storage, no surprise.
 
-**[coolcloud.odoo.com](https://coolcloud.odoo.com)** — the product site, editions and deployment help.
+**[CoolCloud website](https://openhcat.github.io/cc-appregistry/)** — the product site, editions and deployment help.
 
-**[Get Enterprise for more apps →](https://coolcloud.odoo.com/contactus)** — Helpdesk, Inventory, Uptime & Status, the full CRM and Finance, SSO and encryption at rest.
+**[Get Enterprise for more apps →](mailto:coolcloud.getenterprise@hatcat.me)** — Helpdesk, Inventory, Uptime & Status, the full CRM and Finance, SSO and encryption at rest.
 
 ```bash
 git clone https://github.com/openhcat/CoolCloud-Community.git
@@ -35,10 +35,11 @@ Then open `http://localhost:8080`.
 | **CRM pipeline and forecasting, Finance expenses/recurring/export** | — | ✓ |
 | **SSO (OpenID Connect) sign-in** | — | ✓ |
 | **Encryption at rest for secrets and app data** | — | ✓ |
+| **CC Defender: login lockouts, IP allow/deny lists, country blocks, CLI/API guard** | — | ✓ |
 | **IP allowlists, password policy, session caps, audit export** | — | ✓ |
 | Priority support and deployment review | — | ✓ |
 
-Community is complete for a small team and permanently free. **CoolCloud Enterprise** adds the branded edition, SSO, encryption at rest, hardening controls and the fuller CRM/Finance apps. More at [coolcloud.odoo.com](https://coolcloud.odoo.com).
+Community is complete for a small team and permanently free. **CoolCloud Enterprise** adds the branded edition, SSO, encryption at rest, hardening controls and the fuller CRM/Finance apps. More at the [CoolCloud website](https://openhcat.github.io/cc-appregistry/).
 
 ## Screenshots
 
@@ -123,7 +124,7 @@ Or run the CLI directly: `./coolcloud --start`.
 
 CoolCloud listens on `0.0.0.0:8080` by default. Put it behind a reverse proxy with TLS for anything beyond your LAN — see [`docs/HOSTING.txt`](docs/HOSTING.txt) and [`docs/DOMAIN-TLS-DDNS.txt`](docs/DOMAIN-TLS-DDNS.txt), which covers custom domains and dynamic DNS step by step.
 
-The **globe** at the bottom of the sidebar opens [coolcloud.odoo.com](https://coolcloud.odoo.com) from inside the app.
+The **globe** at the bottom of the sidebar opens the [CoolCloud website](https://openhcat.github.io/cc-appregistry/) from inside the app.
 
 ---
 
@@ -278,4 +279,4 @@ See [`docs/SECURITY.txt`](docs/SECURITY.txt).
 
 ## License
 
-MIT. Do what you want with it; keep the notice. The Enterprise edition is licensed separately — see [coolcloud.odoo.com](https://coolcloud.odoo.com).
+MIT. Do what you want with it; keep the notice. The Enterprise edition is licensed separately — see the [CoolCloud website](https://openhcat.github.io/cc-appregistry/) or write to coolcloud.getenterprise@hatcat.me.

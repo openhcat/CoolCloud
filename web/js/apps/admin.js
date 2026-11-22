@@ -223,7 +223,7 @@ export default function mount(root, ctx) {
         <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-signature')} Wordmark and logo</span><span class="badge">Enterprise</span></div>
         <p class="small" style="line-height:1.65;margin:0">Community keeps the CoolCloud name and mark on every page. CoolCloud Enterprise lets you replace both with your own company wordmark and logo.</p>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
-          <a class="btn quiet sm" href="https://coolcloud.odoo.com" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-arrow-up-right-from-square')} CoolCloud Enterprise</a>
+          <a class="btn quiet sm" href="https://openhcat.github.io/cc-appregistry/" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-arrow-up-right-from-square')} CoolCloud Enterprise</a>
         </div>
       </section>`
       }

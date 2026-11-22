@@ -178,7 +178,7 @@ export default function mount(root, ctx) {
                           app.installed
                             ? `<span class="badge ok">${icon('fa-solid fa-check')} Installed</span>`
                             : app.enterpriseOnly || app.enterprise
-                              ? `<a class="btn quiet sm" href="${esc(app.contact || 'https://coolcloud.odoo.com/contactus')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Contact us</a>`
+                              ? `<a class="btn quiet sm" href="${esc(app.contact || 'mailto:coolcloud.getenterprise@hatcat.me')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Contact us</a>`
                               : `<button class="btn primary sm" data-install="${esc(app.id)}" data-type="${esc(app.type || 'app')}">${icon('fa-solid fa-download')} Install</button>`
                         }
                         <button class="btn ghost sm" data-details="${esc(app.id)}">${icon('fa-solid fa-circle-info')} Details</button>
@@ -493,7 +493,7 @@ export default function mount(root, ctx) {
       <div class="foot">
         ${
           app.enterpriseOnly || app.enterprise
-            ? `<a class="btn primary sm" href="${esc(app.contact || 'https://coolcloud.odoo.com/contactus')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Get Enterprise</a><span class="badge">Enterprise only</span>`
+            ? `<a class="btn primary sm" href="${esc(app.contact || 'mailto:coolcloud.getenterprise@hatcat.me')}" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-building')} Get Enterprise</a><span class="badge">Enterprise only</span>`
             : app.installed
               ? `<span class="badge ok">${icon('fa-solid fa-check')} Installed</span>`
               : `<button class="btn primary sm" data-detail-install="${esc(app.id)}" data-type="${esc(app.type || 'app')}">${icon('fa-solid fa-download')} Install</button>`

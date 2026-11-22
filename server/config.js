@@ -4,7 +4,9 @@ import path from 'node:path';
 /** The registry the installer and App Store pull apps from. */
 export const OFFICIAL_REGISTRY = 'https://raw.githubusercontent.com/openhcat/cc-appregistry/main/registry.json';
 export const REGISTRY_HOME = 'https://openhcat.github.io/cc-appregistry/';
-export const WEBSITE = 'https://coolcloud.odoo.com';
+export const WEBSITE = 'https://openhcat.github.io/cc-appregistry/';
+export const ENTERPRISE_CONTACT = 'mailto:coolcloud.getenterprise@hatcat.me?subject=CoolCloud%20Enterprise';
+export const SUPPORT_CONTACT = 'mailto:coolcloud.support@hatcat.me';
 
 /** The product release, from package.json (config.version is the config schema). */
 export const RELEASE = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;

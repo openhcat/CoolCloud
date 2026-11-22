@@ -156,7 +156,7 @@ export function shellMarkup() {
       ${
         state.user?.prefs?.editionBadge === false
           ? ''
-          : `<a class="edition-badge" id="edition-badge" href="${esc(state.server?.website || 'https://coolcloud.odoo.com')}" target="_blank" rel="noopener noreferrer" title="Get Enterprise for more apps">
+          : `<a class="edition-badge" id="edition-badge" href="${esc(state.server?.website || 'https://openhcat.github.io/cc-appregistry/')}" target="_blank" rel="noopener noreferrer" title="Get Enterprise for more apps">
               <i class="fa-solid fa-cloud"></i>
               <span>${state.server?.edition === 'enterprise' ? 'Enterprise' : 'Community'} <b>v${esc(state.server?.release || '2.0.0')}</b></span>
             </a>`
@@ -183,7 +183,7 @@ export function shellMarkup() {
 
       <div class="sidebar-foot">
         <div class="side-links">
-          <a class="side-link" href="${esc(state.server?.website || 'https://coolcloud.odoo.com')}" target="_blank" rel="noopener noreferrer" title="CoolCloud website" aria-label="CoolCloud website">${icon(
+          <a class="side-link" href="${esc(state.server?.website || 'https://openhcat.github.io/cc-appregistry/')}" target="_blank" rel="noopener noreferrer" title="CoolCloud website" aria-label="CoolCloud website">${icon(
             'fa-solid fa-globe'
           )}</a>
           ${

@@ -4,7 +4,7 @@ import { audit } from '../db.js';
 import { ipOf, sendJson } from '../http.js';
 import { listApps } from '../apps.js';
 import { nowISO } from '../util.js';
-import { RELEASE } from '../config.js';
+import { RELEASE, WEBSITE } from '../config.js';
 
 const attempts = new Map();
 const RATE_WINDOW = 5 * 60 * 1000;
@@ -46,7 +46,7 @@ export function registerAuth(router) {
     sendJson(ctx.res, 200, {
       name: ctx.cfg.name,
       edition: ctx.cfg.edition || 'community',
-      website: ctx.cfg.website || 'https://coolcloud.odoo.com',
+      website: ctx.cfg.website || WEBSITE,
       organization: ctx.cfg.organization || {},
       branding: ctx.cfg.branding || {},
       version: ctx.cfg.version,
@@ -142,7 +142,7 @@ export function registerAuth(router) {
       server: {
         name: ctx.cfg.name,
         edition: ctx.cfg.edition || 'community',
-        website: ctx.cfg.website || 'https://coolcloud.odoo.com',
+        website: ctx.cfg.website || WEBSITE,
         branding: ctx.cfg.branding || {},
         publicUrl: ctx.cfg.publicUrl,
         organization: ctx.cfg.organization || {},
