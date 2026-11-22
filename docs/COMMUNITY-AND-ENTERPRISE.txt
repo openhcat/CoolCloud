@@ -87,4 +87,4 @@ server/config.js               DEFAULT_CONFIG, brandingUnlocked(), edition
 server/api/admin.js            The branding gate and PATCH /api/admin/config
 web/js/apps/admin.js           Personalization: accent for all, brand for Enterprise
 
-Website: https://openhcat.github.io/cc-appregistry/
+Website: https://openhcat.github.io/coolcloud-homepage/

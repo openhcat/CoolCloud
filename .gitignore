@@ -14,3 +14,4 @@ screenshot-*.png
 # Separate projects that live beside this checkout, never inside it.
 /enterprise/
 /cc-appregistry/
+/coolcloud-homepage/

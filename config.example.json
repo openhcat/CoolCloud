@@ -2,7 +2,7 @@
   "version": 2,
   "edition": "community",
   "name": "CoolCloud",
-  "website": "https://openhcat.github.io/cc-appregistry/",
+  "website": "https://openhcat.github.io/coolcloud-homepage/",
   "host": "0.0.0.0",
   "port": 8080,
   "publicUrl": "http://localhost:8080",

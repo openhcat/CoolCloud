@@ -4,7 +4,7 @@ import path from 'node:path';
 /** The registry the installer and App Store pull apps from. */
 export const OFFICIAL_REGISTRY = 'https://raw.githubusercontent.com/openhcat/cc-appregistry/main/registry.json';
 export const REGISTRY_HOME = 'https://openhcat.github.io/cc-appregistry/';
-export const WEBSITE = 'https://openhcat.github.io/cc-appregistry/';
+export const WEBSITE = 'https://openhcat.github.io/coolcloud-homepage/';
 export const ENTERPRISE_CONTACT = 'mailto:coolcloud.getenterprise@hatcat.me?subject=CoolCloud%20Enterprise';
 export const SUPPORT_CONTACT = 'mailto:coolcloud.support@hatcat.me';
 
