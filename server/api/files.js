@@ -6,6 +6,7 @@ import { fileKind, isTextName, relFrom, safeJoin, nowISO, walkFiles } from '../u
 import { appendLog, storageLimitBytes, storageUsed } from '../config.js';
 import { indexFile, metaFor, moveMeta, moveToTrash, removeMeta, removeSearch, runRules, saveVersion, setMeta, usageForOwner, versionsFor } from '../storage.js';
 import { accessSummary, assertAccess, parentPath, visiblePath } from '../access.js';
+import { DOCUMENT_KINDS, newDocument } from '../documents.js';
 
 let usageCache = { at: 0, bytes: 0 };
 
@@ -360,6 +361,47 @@ export function registerFiles(router) {
     indexFile(ctx.db, x, rel);
     if (body.create) runRules(ctx, 'file.upload', { userId: user.id, path: rel, name: path.basename(rel) });
     sendJson(ctx.res, 200, { ok: true, mtime: fs.statSync(x).mtime.toISOString() });
+  });
+
+  /* Empty Writer, Calc, Impress and text files for the Files app. */
+  router.post('/api/files/new', async (ctx) => {
+    const user = requireUser(ctx);
+    const body = await ctx.json();
+    const kind = String(body.kind || '').toLowerCase();
+    const spec = DOCUMENT_KINDS[kind];
+    if (!spec) return sendJson(ctx.res, 400, { error: 'Choose a document type' });
+    const rel = String(body.path || '').trim();
+    if (!rel) return sendJson(ctx.res, 400, { error: 'A file name is required' });
+    if (path.extname(rel).toLowerCase() !== spec.ext) {
+      return sendJson(ctx.res, 400, { error: `Use a ${spec.ext} file name for a ${spec.label.toLowerCase()}` });
+    }
+    try {
+      assertAccess(ctx.db, user, rel, { write: true });
+    } catch (err) {
+      return sendJson(ctx.res, err.status || 403, { error: err.message });
+    }
+    const full = safeJoin(ctx.paths.filesDir, rel);
+    if (fs.existsSync(full)) return sendJson(ctx.res, 409, { error: 'A file with that name already exists' });
+
+    const document = newDocument(kind);
+    const size = document.buffer.length;
+    const limit = storageLimitBytes(ctx.cfg);
+    if (limit && usedBytes(ctx.paths) + size > limit) {
+      return sendJson(ctx.res, 507, { error: 'This server has reached its storage limit' });
+    }
+    const quota = user.quota_mb ? Number(user.quota_mb) * 1024 * 1024 : 0;
+    if (quota && usageForOwner(ctx.db, ctx.paths, user.id) + size > quota) {
+      return sendJson(ctx.res, 507, { error: 'Your personal storage quota is full' });
+    }
+
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, document.buffer);
+    usageCache.at = 0;
+    setMeta(ctx.db, rel, { ownerId: user.id }, user.id);
+    indexFile(ctx.db, full, rel);
+    runRules(ctx, 'file.upload', { userId: user.id, path: rel, name: path.basename(rel) });
+    appendLog(ctx.paths.accessLog, `${user.username} created ${rel}`);
+    sendJson(ctx.res, 200, { ok: true, path: rel, kind, label: spec.label });
   });
 
   router.get('/api/files/versions', async (ctx) => {

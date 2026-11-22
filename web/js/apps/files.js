@@ -76,7 +76,9 @@ export default function mount(root, ctx) {
         <p class="page-sub">Shared across everyone on this CoolCloud.</p>
       </div>
       <div class="page-actions">
-        <button class="btn quiet sm" id="new-doc">${icon('fa-regular fa-file-lines')} New document</button>
+        <button class="btn quiet sm" id="new-doc" aria-haspopup="menu">${icon('fa-regular fa-file-lines')} New document ${icon(
+          'fa-solid fa-chevron-down'
+        )}</button>
         <button class="btn quiet sm" id="new-folder">${icon('fa-regular fa-folder')} New folder</button>
         <button class="btn quiet sm" id="upload-folder">${icon('fa-solid fa-folder-tree')} Upload folder</button>
         <button class="btn quiet sm" id="more-files">${icon('fa-solid fa-ellipsis')} More</button>
@@ -331,9 +333,10 @@ export default function mount(root, ctx) {
       }</p><div class="row" style="justify-content:center;gap:8px">${
         filter
           ? `<button class="btn sm" data-clear-filter>Clear filter</button>`
-          : `<button class="btn sm" data-empty-upload>Upload a file</button><button class="btn sm" data-empty-folder>New folder</button>`
+          : `<button class="btn sm" data-empty-upload>Upload a file</button><button class="btn sm" data-empty-new>New document</button><button class="btn sm" data-empty-folder>New folder</button>`
       }</div></div>`;
       rows.querySelector('[data-empty-upload]')?.addEventListener('click', () => input.click());
+      rows.querySelector('[data-empty-new]')?.addEventListener('click', (event) => newDocMenu(event));
       rows.querySelector('[data-empty-folder]')?.addEventListener('click', newFolder);
       rows.querySelector('[data-clear-filter]')?.addEventListener('click', () => {
         filter = '';
@@ -1690,6 +1693,95 @@ export default function mount(root, ctx) {
     });
   }
 
+  /* ----------------------------- new documents ----------------------------- */
+
+  const NEW_DOCS = [
+    ['docx', 'fa-regular fa-file-word', 'Document', '.docx'],
+    ['xlsx', 'fa-regular fa-file-excel', 'Spreadsheet', '.xlsx'],
+    ['pptx', 'fa-regular fa-file-powerpoint', 'Presentation', '.pptx'],
+    ['md', 'fa-regular fa-file-lines', 'Text document', '.md'],
+    ['txt', 'fa-regular fa-file', 'Plain text', '.txt']
+  ];
+  const NEW_DOC_NAMES = {
+    docx: 'Untitled document',
+    xlsx: 'Untitled spreadsheet',
+    pptx: 'Untitled presentation',
+    md: 'Untitled document',
+    txt: 'Untitled'
+  };
+
+  function uniqueName(base, ext) {
+    const taken = new Set(entries.map((entry) => entry.name.toLowerCase()));
+    let candidate = `${base}${ext}`;
+    let index = 2;
+    while (taken.has(candidate.toLowerCase())) {
+      candidate = `${base} ${index}${ext}`;
+      index += 1;
+    }
+    return candidate;
+  }
+
+  function newDocMenu(event) {
+    document.querySelector('.menu')?.remove();
+    const menu = document.createElement('div');
+    menu.className = 'menu';
+    menu.style.minWidth = '240px';
+    menu.innerHTML = NEW_DOCS.map(
+      ([kind, glyph, label, ext]) =>
+        `<button data-new-kind="${kind}" role="menuitem">${icon(glyph)}<span>${label}</span><span class="dim" style="margin-left:auto;font-size:10.5px">${ext}</span></button>`
+    ).join('');
+    document.body.appendChild(menu);
+    const rect = event.currentTarget.getBoundingClientRect();
+    menu.style.top = `${Math.min(window.innerHeight - 260, rect.bottom + 6)}px`;
+    menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 250, rect.left))}px`;
+    const close = () => menu.remove();
+    setTimeout(() => document.addEventListener('click', close, { once: true }), 0);
+    menu.querySelectorAll('[data-new-kind]').forEach((node) =>
+      node.addEventListener('click', () => {
+        close();
+        newDocumentForm(node.dataset.newKind);
+      })
+    );
+  }
+
+  function newDocumentForm(kind) {
+    const spec = NEW_DOCS.find(([value]) => value === kind);
+    if (!spec) return;
+    const [, , label] = spec;
+    const office = ['docx', 'xlsx', 'pptx'].includes(kind);
+    openModal({
+      title: `New ${label.toLowerCase()}`,
+      sub: office
+        ? 'Saved in this folder and opened in Collabora.'
+        : 'Saved in this folder and opened in the Editor.',
+      body: `<div class="field"><label class="label">File name</label><input class="input" id="new-doc-name" value="${esc(
+        uniqueName(NEW_DOC_NAMES[kind], spec[3])
+      )}" autocomplete="off" /></div>`,
+      actions: [
+        { label: 'Cancel', kind: 'ghost' },
+        {
+          label: 'Create',
+          kind: 'primary',
+          onClick: async ({ dialog }) => {
+            const name = dialog.querySelector('#new-doc-name').value.trim();
+            if (!name) return false;
+            const target = joinPath(current, name);
+            try {
+              await api('/api/files/new', { method: 'POST', body: { path: target, kind } });
+              toast(`${label} created`);
+              load();
+              if (office) openTab(`viewer?path=${encodeURIComponent(target)}`);
+              else openTab(`cc:editor?file=${encodeURIComponent(target)}`);
+            } catch (err) {
+              toast(err.message, 'error');
+              return false;
+            }
+          }
+        }
+      ]
+    });
+  }
+
   function confirmReplace(names) {
     return new Promise((resolve) => {
       openModal({
@@ -1849,33 +1941,7 @@ export default function mount(root, ctx) {
   });
   root.querySelector('#new-folder').addEventListener('click', newFolder);
 
-  root.querySelector('#new-doc').addEventListener('click', () => {
-    openModal({
-      title: 'New document',
-      sub: 'Creates a text file and opens it in the Editor.',
-      body: `<div class="field"><label class="label">File name</label><input class="input" id="doc-name" placeholder="notes.md" value="untitled.md" /></div>`,
-      actions: [
-        { label: 'Cancel', kind: 'ghost' },
-        {
-          label: 'Create',
-          kind: 'primary',
-          onClick: async ({ dialog }) => {
-            const name = dialog.querySelector('#doc-name').value.trim();
-            if (!name) return false;
-            const target = joinPath(current, name);
-            try {
-              await api('/api/files/text', { method: 'PUT', body: { path: target, content: '', create: true } });
-              load();
-              openTab(`cc:editor?file=${encodeURIComponent(target)}`);
-            } catch (err) {
-              toast(err.message, 'error');
-              return false;
-            }
-          }
-        }
-      ]
-    });
-  });
+  root.querySelector('#new-doc').addEventListener('click', newDocMenu);
 
   filterInput.addEventListener('input', () => {
     filter = filterInput.value;
