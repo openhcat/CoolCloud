@@ -13,6 +13,7 @@ import { registerWorkspace } from './api/workspace.js';
 import { registerMail } from './api/mail.js';
 import { registerAdmin } from './api/admin.js';
 import { attachConnect, registerExtras } from './api/extras.js';
+import { registerPublicForms, serveFormPage } from './forms.js';
 import { registerOffice } from './api/office.js';
 import { registerStudio } from './api/studio.js';
 import { registerTeams } from './api/teams.js';
@@ -73,6 +74,7 @@ registerOffice(state.router);
 registerStudio(state.router);
 registerTeams(state.router);
 registerExtras(state.router);
+registerPublicForms(state.router);
 
 /* ------------------------------ static files ----------------------------- */
 
@@ -160,6 +162,11 @@ const server = http.createServer(async (req, res) => {
         },
         url
       );
+      return;
+    }
+
+    if (url.pathname.startsWith('/f/')) {
+      await serveFormPage({ req, res, url, db });
       return;
     }
 
