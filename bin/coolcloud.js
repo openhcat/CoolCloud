@@ -332,7 +332,8 @@ async function cmdInstall(opts) {
   else if (!nonInteractive && opts.essentials === undefined) {
     console.log('');
     console.log(`  ${color.bold('Extras')}`);
-    essentials = await confirm('  Install the Essentials Pack? Connect, Media and Assistant (beta)', false);
+    console.log(color.muted('  Connect, Media, Assistant (beta), CRM, Finance, Projects and Studio.'));
+    essentials = await confirm('  Install the Essentials Pack?', false);
   }
 
   let withCli = opts.cli === 'yes' || opts.cli === true;
@@ -367,7 +368,7 @@ async function cmdInstall(opts) {
   const { DEFAULT_CONFIG, saveConfig, ensureInstanceDirs, instancePaths } = await import('../server/config.js');
   const { openDb } = await import('../server/db.js');
   const { hashPassword } = await import('../server/auth.js');
-  const { syncApps } = await import('../server/apps.js');
+  const { ensureAppCatalog, installRegistryApp, seedOfficialRegistry, syncApps } = await import('../server/apps.js');
 
   const cfg = structuredClone(DEFAULT_CONFIG);
   cfg.name = 'CoolCloud';
@@ -384,9 +385,7 @@ async function cmdInstall(opts) {
       : { mode: 'unlimited', totalGb: null, defaultUserQuotaMb: null };
   cfg.limits = { maxUsers: maxUsers || 0 };
   cfg.apps.essentialsInstalled = essentials;
-  cfg.features.connect = essentials;
-  cfg.features.media = essentials;
-  cfg.features.assistant = essentials;
+  for (const name of cfg.apps.essentials) cfg.features[name] = essentials;
 
   const configPath = path.join(dir, 'config.json');
   saveConfig(configPath, cfg);
@@ -398,8 +397,39 @@ async function cmdInstall(opts) {
     'INSERT INTO users (username, display_name, email, pass_hash, role, quota_mb, prefs, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(adminUser.toLowerCase(), adminName, adminEmail, hashPassword(adminPass), 'admin', null, '{}', new Date().toISOString());
 
+  /* The app catalogue is not shipped in the source tree. Pull it from the
+     official registry, then install the Essentials Pack apps that are real
+     packages rather than platform modules. */
   const appDir = path.join(dir, 'apps');
-  syncApps(db, fs.existsSync(appDir) ? appDir : path.join(ROOT, 'apps'), paths.appsDir, cfg);
+  let catalog = null;
+  try {
+    catalog = await ensureAppCatalog(appDir, cfg, { force: true });
+  } catch (err) {
+    console.log(color.muted(`  Apps     could not reach the registry (${err.message}); the catalog sync retries at start`));
+  }
+  syncApps(db, appDir, paths.appsDir, cfg);
+  await seedOfficialRegistry(db, cfg).catch(() => undefined);
+
+  if (essentials && catalog?.payload) {
+    const wanted = new Set(cfg.apps.essentials.map((name) => `cc:${name}`));
+    const extras = catalog.payload.apps.filter(
+      (app) => app && app.essentials && app.runtime !== 'core' && wanted.has(app.id) && !app.builtin
+    );
+    let installedExtras = 0;
+    for (const entry of extras) {
+      try {
+        await installRegistryApp(db, paths.appsDir, {
+          ...entry,
+          repo: entry.repo || catalog.payload.repo,
+          branch: entry.branch || catalog.payload.branch
+        });
+        installedExtras += 1;
+      } catch (err) {
+        console.log(color.muted(`  Apps     ${entry.name}: ${err.message}`));
+      }
+    }
+    if (installedExtras) console.log(color.muted(`  Apps     Essentials Pack: ${installedExtras} packages installed`));
+  }
 
   // starter folders
   for (const folder of ['Documents', 'Projects', 'Media']) {
@@ -448,6 +478,8 @@ async function cmdInstall(opts) {
   console.log(`  ${color.muted('Open     ')} http://localhost:${port}`);
   console.log(`  ${color.muted('Sign in  ')} ${opts['admin-user'] || adminUser} / your password`);
   console.log(`  ${color.muted('Start    ')} cd ${dir} && ${process.platform === 'win32' ? 'start.cmd' : './start.sh'}`);
+  console.log(`  ${color.muted('Apps     ')} Official App Registry (appstore.registries in config.json)`);
+  console.log(`  ${color.muted('Website  ')} ${cfg.website}`);
   if (withCli) console.log(`  ${color.muted('CLI      ')} coolcloud --login`);
   console.log('');
 

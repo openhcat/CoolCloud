@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { appendLog, ensureInstanceDirs, instancePaths, loadConfig } from './config.js';
 import { notify, openDb } from './db.js';
-import { syncApps } from './apps.js';
+import { ensureAppCatalog, seedOfficialRegistry, syncApps } from './apps.js';
 import { Router, isSameOrigin, readJson, sendJson, serveFile } from './http.js';
 import { userFromRequest } from './auth.js';
 import { registerAuth } from './api/auth.js';
@@ -37,20 +37,23 @@ const paths = instancePaths(configPath);
 ensureInstanceDirs(paths);
 const db = openDb(paths.dataDir);
 const WEB_ROOT = fs.existsSync(path.join(paths.root, 'web')) ? path.join(paths.root, 'web') : path.join(BUNDLE_ROOT, 'web');
-syncApps(db, path.join(paths.root, 'apps'), paths.appsDir, cfg);
+
+/* Apps are not bundled with the platform: the catalogue is pulled from the
+   official registry into <instance>/apps, then every manifest is registered. */
+const CATALOG_DIR = path.join(paths.root, 'apps');
+try {
+  const catalog = await ensureAppCatalog(CATALOG_DIR, cfg);
+  if (catalog.source === 'registry') console.log(`  App catalogue: pulled ${catalog.apps} manifests from the registry`);
+} catch (err) {
+  console.error(`  App catalogue: ${err.message}`);
+  console.error('  Apps already installed stay available; the catalogue sync will retry on the next start.');
+}
+syncApps(db, CATALOG_DIR, paths.appsDir, cfg);
 pruneTrash(paths, db, 30);
 indexTree(db, paths);
-if (!listAppCount()) {
-  syncApps(db, path.join(BUNDLE_ROOT, 'apps'), paths.appsDir, cfg);
-}
-
-function listAppCount() {
-  try {
-    return db.prepare('SELECT COUNT(*) AS n FROM apps').get().n;
-  } catch {
-    return 0;
-  }
-}
+seedOfficialRegistry(db, cfg).catch(() => {
+  /* the store keeps its cached copy when the registry is offline */
+});
 
 const state = {
   db,

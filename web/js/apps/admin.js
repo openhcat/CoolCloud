@@ -191,14 +191,17 @@ export default function mount(root, ctx) {
     const cfg = overview.config;
     const brand = { ...DEFAULT_BRANDING, ...(cfg.branding || {}) };
     look = { accent: brand.accent, logo: brand.logo || '' };
+    const enterprise = (cfg.edition || 'community') === 'enterprise';
 
     panel.innerHTML = `<form id="look-form" class="stack-4" style="max-width:820px">
       <div class="note">${icon(
         'fa-solid fa-circle-info'
       )}<span>Applied to every page and open tab when you save. The wordmark plate is derived from the accent, so the whole product changes together.</span></div>
 
-      <section class="widget">
-        <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-signature')} Wordmark</span></div>
+      ${
+        enterprise
+          ? `<section class="widget">
+        <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-signature')} Wordmark</span><span class="badge accent">Enterprise</span></div>
         <div class="stack-3">
           <div class="field-row">
             <div class="field">
@@ -215,7 +218,15 @@ export default function mount(root, ctx) {
           <div class="brand-preview" id="look-preview"></div>
           <p class="hint">The plate uses a darker shade of the accent, the same colour as the browser icon.</p>
         </div>
-      </section>
+      </section>`
+          : `<section class="widget">
+        <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-signature')} Wordmark and logo</span><span class="badge">Enterprise</span></div>
+        <p class="small" style="line-height:1.65;margin:0">Community keeps the CoolCloud name and mark on every page. CoolCloud Enterprise lets you replace both with your own company wordmark and logo.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+          <a class="btn quiet sm" href="https://coolcloud.odoo.com" target="_blank" rel="noopener noreferrer">${icon('fa-solid fa-arrow-up-right-from-square')} CoolCloud Enterprise</a>
+        </div>
+      </section>`
+      }
 
       <section class="widget">
         <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-droplet')} Accent</span></div>
@@ -237,7 +248,9 @@ export default function mount(root, ctx) {
         <p class="hint" style="margin-top:8px">Drives buttons, links, focus rings, the active tab and the plate. Label colour is chosen for contrast.</p>
       </section>
 
-      <section class="widget">
+      ${
+        enterprise
+          ? `<section class="widget">
         <div class="widget-head"><span class="widget-title">${icon('fa-solid fa-image')} Custom logo</span></div>
         <div class="upload-box">
           <span class="logo-seal" id="look-logo" style="width:auto;height:26px"></span>
@@ -249,7 +262,9 @@ export default function mount(root, ctx) {
           <button type="button" class="btn ghost sm" id="logo-clear">${icon('fa-solid fa-xmark')} Clear</button>
         </div>
         <p class="hint" style="margin-top:8px">A wide wordmark works best. The same image becomes the browser icon.</p>
-      </section>
+      </section>`
+          : ''
+      }
 
       <div class="row" style="justify-content:flex-end">
         <button class="btn primary" type="submit">Save personalization</button>
@@ -261,15 +276,15 @@ export default function mount(root, ctx) {
     const logoSlot = panel.querySelector('#look-logo');
 
     const paint = () => {
-      const name = form.name.value.trim() || 'CoolCloud';
-      const word = form.logoWord.value.trim() || 'Cloud';
-      preview.style.setProperty('--brand', shade(look.accent, 0.6));
-      preview.innerHTML = `${brandLockup({ word, logo: look.logo, title: name })}
+      const name = form.name?.value.trim() || 'CoolCloud';
+      const word = form.logoWord?.value.trim() || 'Cloud';
+      if (preview) preview.style.setProperty('--brand', shade(look.accent, 0.6));
+      if (preview) preview.innerHTML = `${brandLockup({ word, logo: look.logo, title: name })}
         <div style="min-width:0">
           <div class="bp-name">${esc(name)}</div>
           <div class="bp-tag">Browser title, sign-in, sidebar</div>
         </div>`;
-      logoSlot.innerHTML = look.logo
+      if (logoSlot) logoSlot.innerHTML = look.logo
         ? `<img src="${esc(look.logo)}" alt="" style="height:26px;display:block;border-radius:4px" />`
         : brandLockup({ word, title: name });
       panel.querySelectorAll('[data-accent]').forEach((node) => {
@@ -288,8 +303,8 @@ export default function mount(root, ctx) {
         paint();
       });
     });
-    panel.querySelector('#logo-pick').addEventListener('click', () => panel.querySelector('#logo-file').click());
-    panel.querySelector('#logo-file').addEventListener('change', (event) => {
+    panel.querySelector('#logo-pick')?.addEventListener('click', () => panel.querySelector('#logo-file').click());
+    panel.querySelector('#logo-file')?.addEventListener('change', (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
       if (file.size > 120000) return toast('Use an image under 120 KB', 'error');
@@ -300,14 +315,14 @@ export default function mount(root, ctx) {
       };
       reader.readAsDataURL(file);
     });
-    panel.querySelector('#logo-clear').addEventListener('click', () => {
+    panel.querySelector('#logo-clear')?.addEventListener('click', () => {
       look.logo = '';
-      panel.querySelector('#logo-file').value = '';
+      if (panel.querySelector('#logo-file')) panel.querySelector('#logo-file').value = '';
       paint();
     });
     panel.querySelector('#look-reset').addEventListener('click', () => {
-      form.name.value = 'CoolCloud';
-      form.logoWord.value = DEFAULT_BRANDING.logoWord;
+      if (form.name) form.name.value = 'CoolCloud';
+      if (form.logoWord) form.logoWord.value = DEFAULT_BRANDING.logoWord;
       look = { accent: DEFAULT_BRANDING.accent, logo: '' };
       paint();
     });
@@ -317,14 +332,16 @@ export default function mount(root, ctx) {
       try {
         await api('/api/admin/config', {
           method: 'PATCH',
-          body: {
-            name: form.name.value.trim(),
-            branding: {
-              logoWord: form.logoWord.value.trim(),
-              accent: look.accent,
-              logo: look.logo
-            }
-          }
+          body: enterprise
+            ? {
+                name: form.name.value.trim(),
+                branding: {
+                  logoWord: form.logoWord.value.trim(),
+                  accent: look.accent,
+                  logo: look.logo
+                }
+              }
+            : { branding: { accent: look.accent } }
         });
         toast('Personalization saved');
         const session = await refreshSession();

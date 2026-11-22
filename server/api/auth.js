@@ -44,6 +44,8 @@ export function registerAuth(router) {
   router.get('/api/branding', async (ctx) => {
     sendJson(ctx.res, 200, {
       name: ctx.cfg.name,
+      edition: ctx.cfg.edition || 'community',
+      website: ctx.cfg.website || 'https://coolcloud.odoo.com',
       organization: ctx.cfg.organization || {},
       branding: ctx.cfg.branding || {},
       version: ctx.cfg.version
@@ -137,12 +139,15 @@ export function registerAuth(router) {
       apps,
       server: {
         name: ctx.cfg.name,
+        edition: ctx.cfg.edition || 'community',
+        website: ctx.cfg.website || 'https://coolcloud.odoo.com',
         branding: ctx.cfg.branding || {},
         publicUrl: ctx.cfg.publicUrl,
         organization: ctx.cfg.organization || {},
         storage: ctx.cfg.storage,
         features: ctx.cfg.features,
         editor: ctx.cfg.editor,
+        appstore: ctx.cfg.appstore || {},
         version: ctx.cfg.version
       }
     });

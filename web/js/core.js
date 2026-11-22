@@ -324,7 +324,12 @@ export const APP_ACCENTS = {
   tasks: 'tasks',
   connect: 'connect',
   media: 'media',
-  assistant: 'assistant'
+  assistant: 'assistant',
+  crm: 'crm',
+  finance: 'finance',
+  projects: 'projects',
+  studio: 'studio',
+  notes: 'notes'
 };
 
 export function accentFor(id = '') {

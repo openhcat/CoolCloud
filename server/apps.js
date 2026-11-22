@@ -3,6 +3,173 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { nowISO, slugify, safeJoin } from './util.js';
+import { OFFICIAL_REGISTRY } from './config.js';
+
+export const registryUrl = (cfg) => String(cfg?.appstore?.official || cfg?.appstore?.registries?.[0] || OFFICIAL_REGISTRY);
+
+/** https://github.com/o/r(.git) + main -> https://raw.githubusercontent.com/o/r/main/ */
+export function rawBase(repo, branch = 'main') {
+  const match = String(repo || '').match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (!match) return '';
+  return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/${branch || 'main'}/`;
+}
+
+export async function fetchRegistry(url, timeout = 15000) {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(timeout),
+    headers: { Accept: 'application/json', 'User-Agent': 'CoolCloud-registry' }
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  if (!payload || !Array.isArray(payload.apps)) throw new Error('That JSON has no "apps" array');
+  /* Registry entries may inherit the repository and branch from the registry
+     itself, so every consumer sees a complete entry. */
+  payload.apps = payload.apps.map((app) => ({
+    ...app,
+    repo: app.repo || payload.repo,
+    branch: app.branch || payload.branch || 'main'
+  }));
+  return payload;
+}
+
+/** Safe relative path for a downloaded package file. */
+function packagePath(relative) {
+  const clean = String(relative || '').replace(/\\/g, '/').replace(/^\.\//, '');
+  if (!clean || clean.startsWith('/') || clean.split('/').some((part) => part === '..' || part === '')) {
+    throw Object.assign(new Error(`Unsafe package path: ${relative}`), { status: 400 });
+  }
+  return clean;
+}
+
+/**
+ * Download an app package listed in a registry into a temporary folder.
+ * Only the files named in the entry are fetched, so the installer never
+ * has to trust anything beyond the manifest and its entry point.
+ */
+async function downloadPackage(entry, timeout = 20000) {
+  const base = rawBase(entry.repo, entry.branch);
+  if (!base) throw Object.assign(new Error('This registry entry has no GitHub repository to download from'), { status: 400 });
+  const folder = String(entry.path || '.').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  const files = Array.isArray(entry.files) && entry.files.length ? entry.files : ['manifest.json'];
+  const temp = fs.mkdtempSync(path.join(process.cwd(), '.cc-pkg-'));
+  try {
+    for (const file of files) {
+      const relative = packagePath(file);
+      const url = `${base}${folder && folder !== '.' ? `${folder}/` : ''}${relative}`;
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(timeout),
+        headers: { 'User-Agent': 'CoolCloud-registry' }
+      });
+      if (!response.ok) throw new Error(`${relative}: HTTP ${response.status}`);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > 4 * 1024 * 1024) throw new Error(`${relative} is too large`);
+      const target = path.join(temp, relative);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, buffer);
+    }
+    return temp;
+  } catch (err) {
+    fs.rmSync(temp, { recursive: true, force: true });
+    throw Object.assign(new Error(`Could not download the app package: ${err.message}`), { status: 400 });
+  }
+}
+
+/** Install the app described by one registry entry. */
+export async function installRegistryApp(db, instanceAppsDir, entry, { type = '' } = {}) {
+  if (!entry || !entry.id) throw Object.assign(new Error('A registry app needs an id'), { status: 400 });
+  let temp = '';
+  try {
+    if (Array.isArray(entry.files) && entry.files.length) {
+      temp = await downloadPackage(entry);
+      const manifest = readManifest(temp);
+      if (!manifest) throw Object.assign(new Error('The downloaded package has no valid manifest.json'), { status: 400 });
+      const installed = copyAppFolder(db, instanceAppsDir, temp, { type });
+      return installed;
+    }
+    const repo = entry.repo;
+    if (!repo) throw Object.assign(new Error('That registry entry has no repository'), { status: 400 });
+    if (entry.path && entry.path !== '.') {
+      temp = await cloneToTemp(repo, entry.branch);
+      const source = safeJoin(temp, entry.path);
+      const installed = copyAppFolder(db, instanceAppsDir, source, { type });
+      return installed;
+    }
+    return cloneApp(db, instanceAppsDir, repo, { branch: entry.branch, type });
+  } finally {
+    if (temp && fs.existsSync(temp)) fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function cloneToTemp(gitUrl, branch = '') {
+  const temp = fs.mkdtempSync(path.join(process.cwd(), '.cc-clone-'));
+  const args = ['clone', '--depth', '1'];
+  if (branch) args.push('--branch', branch);
+  args.push(gitUrl, temp);
+  const result = spawnSync('git', args, { encoding: 'utf8', timeout: 120000 });
+  if (result.status !== 0) {
+    fs.rmSync(temp, { recursive: true, force: true });
+    throw Object.assign(new Error(`git clone failed: ${(result.stderr || result.stdout || '').slice(0, 400)}`), { status: 400 });
+  }
+  return temp;
+}
+
+/**
+ * Pull the core manifests out of the official registry so a new install has
+ * its app catalogue without keeping any app folder in the source repository.
+ */
+export async function ensureAppCatalog(catalogDir, cfg, { force = false } = {}) {
+  const hasCatalog = () => {
+    try {
+      return fs.readdirSync(catalogDir, { withFileTypes: true }).some((entry) => {
+        if (!entry.isDirectory()) return false;
+        return fs.existsSync(path.join(catalogDir, entry.name, 'manifest.json'));
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  if (!force && hasCatalog()) return { source: 'cache', apps: 0, payload: null };
+
+  const payload = await fetchRegistry(registryUrl(cfg));
+  const wanted = payload.apps.filter((app) => app && app.id && (app.runtime === 'core' || app.builtin));
+  if (!wanted.length) throw new Error('The registry lists no core apps');
+
+  fs.mkdirSync(catalogDir, { recursive: true });
+  let written = 0;
+  for (const app of wanted) {
+    const name = slugify(String(app.id).split(':')[1] || app.name, 'app');
+    const target = path.join(catalogDir, name);
+    try {
+      const temp = await downloadPackage({ ...app, files: ['manifest.json'] });
+      fs.mkdirSync(target, { recursive: true });
+      fs.cpSync(path.join(temp, 'manifest.json'), path.join(target, 'manifest.json'));
+      fs.rmSync(temp, { recursive: true, force: true });
+      written += 1;
+    } catch (err) {
+      // Keep any manifest already on disk; a single failed download must not
+      // wipe the rest of the catalogue.
+      if (!fs.existsSync(path.join(target, 'manifest.json'))) {
+        console.error(`  App catalogue: ${app.id} — ${err.message}`);
+      }
+    }
+  }
+  if (!written) throw new Error('Could not download any app manifest');
+  return { source: 'registry', apps: written, payload };
+}
+
+/** Make the official registry the default row in the store. */
+export async function seedOfficialRegistry(db, cfg, { force = false } = {}) {
+  const url = registryUrl(cfg);
+  const existing = db.prepare('SELECT url FROM registries WHERE url = ?').get(url);
+  if (existing && !force) return { url, cached: true };
+  const payload = await fetchRegistry(url);
+  db.prepare(
+    `INSERT INTO registries (url, name, payload, fetched_at, error) VALUES (?, ?, ?, ?, '')
+     ON CONFLICT(url) DO UPDATE SET name = excluded.name, payload = excluded.payload, fetched_at = excluded.fetched_at, error = ''`
+  ).run(url, String(payload.name || 'Official CoolCloud App Registry').slice(0, 80), JSON.stringify(payload), nowISO());
+  return { url, cached: false, apps: payload.apps.length };
+}
 
 export function readManifest(dir) {
   const file = path.join(dir, 'manifest.json');

@@ -1,8 +1,10 @@
 COOLCLOUD DOCUMENTATION
 =======================
 
-CoolCloud is a self-hosted collaboration suite: Files, Calendar, Mail, Contacts,
-Editor and Tasks, plus an optional Essentials Pack (Connect, Media, Assistant).
+CoolCloud Community is a self-hosted collaboration suite: Files, Calendar, Mail,
+Contacts, Editor and Tasks, plus an optional Essentials Pack (Connect, Media,
+Assistant, CRM, Finance, Projects, Studio). Apps are installed from the app
+registry, not bundled with the platform.
 
 Read in this order
 ------------------
@@ -12,11 +14,12 @@ Read in this order
 4. SECURITY.txt         What is protected, what is not, and how to harden it.
 5. BUILDING-APPS.txt    Write an app for CoolCloud.
 6. APP-MANIFEST.txt     Manifest field reference.
-7. APPSTORE-REGISTRY.txt Decentralised registry format.
+7. APPSTORE-REGISTRY.txt The official registry and the registry format.
 8. DESIGN-SYSTEM.txt    Tokens, components and the rules behind the UI.
 9. API.txt              HTTP endpoints, auth and examples.
 10. EDITOR-OFFICE.txt   Hosted Collabora, embedded office editing and WOPI.
 11. DOMAIN-TLS-DDNS.txt Custom domain, HTTPS, Cloudflare Tunnel, DDNS hosts.
+12. COMMUNITY-AND-ENTERPRISE.txt Editions, licensing and the branding boundary.
 
 What is where
 -------------
@@ -33,11 +36,16 @@ web/                    The interface (no build step, ES modules)
   css/tokens.css        Design tokens
   css/components.css    Buttons, inputs, cards, modals, tables
   js/shell.js           Sidebar, tabs, app drawer, routing
-  js/apps/              One module per app
-apps/                   Bundled app manifests
+  js/apps/              One UI module per app (the platform runtime)
 cc-cli/coolcloud.py     Standalone CLI, standard library only
 examples/hello-app/     A complete minimal third-party app
-appstore/registry.json  Example registry
+EDITION                 community or enterprise
+
+<instance>/apps/        app catalogue pulled from the official registry
+<instance>/data/apps/   installed app packages
+
+Registry: https://github.com/openhcat/cc-appregistry
+Pages:    https://openhcat.github.io/cc-appregistry/
 scripts/sync-assets.js  Vendors Font Awesome and Inter into web/vendor
 
 Design constraints

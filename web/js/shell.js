@@ -175,6 +175,9 @@ export function shellMarkup() {
 
       <div class="sidebar-foot">
         <div class="side-links">
+          <a class="side-link" href="${esc(state.server?.website || 'https://coolcloud.odoo.com')}" target="_blank" rel="noopener noreferrer" title="CoolCloud website" aria-label="CoolCloud website">${icon(
+            'fa-solid fa-globe'
+          )}</a>
           ${
             user.role === 'admin'
               ? `<button class="side-link" data-nav="admin" title="Admin">${icon('fa-solid fa-sliders')}</button>`

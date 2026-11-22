@@ -1,4 +1,4 @@
-const VERSION = 'cc-v7';
+const VERSION = 'cc-v9';
 const SHELL = [
   '/',
   '/index.html',

@@ -4,8 +4,18 @@ import path from 'node:path';
 import { hashPassword, requireAdmin, publicUser, verifyPassword } from '../auth.js';
 import { audit, countUsers } from '../db.js';
 import { ipOf, sendJson } from '../http.js';
-import { saveConfig, storageLimitBytes, storageUsed } from '../config.js';
-import { cloneApp, copyAppFolder, listApps, readManifest, removeApp, syncApps } from '../apps.js';
+import { brandingUnlocked, REGISTRY_HOME, saveConfig, storageLimitBytes, storageUsed } from '../config.js';
+import {
+  cloneApp,
+  copyAppFolder,
+  fetchRegistry,
+  installRegistryApp,
+  listApps,
+  readManifest,
+  removeApp,
+  seedOfficialRegistry,
+  syncApps
+} from '../apps.js';
 import { officeAnswers, officeRunning, officeUrlFor, OFFICE_PROVIDERS, provisionOffice, removeOffice } from '../office.js';
 import { nowISO, safeJoin, slugify } from '../util.js';
 
@@ -135,6 +145,25 @@ export function registerAdmin(router) {
     const admin = requireAdmin(ctx);
     const body = await ctx.json();
     const next = structuredClone(ctx.cfg);
+    const unlocked = brandingUnlocked(next);
+    if (body.name !== undefined && !unlocked) {
+      return sendJson(ctx.res, 403, {
+        error: 'Renaming the product is part of CoolCloud Enterprise. Community keeps the CoolCloud name and mark.',
+        code: 'edition'
+      });
+    }
+    if (body.branding && typeof body.branding === 'object' && !unlocked) {
+      const current = next.branding || {};
+      const changesMark =
+        (body.branding.logoWord !== undefined && String(body.branding.logoWord) !== String(current.logoWord || '')) ||
+        (body.branding.logo !== undefined && String(body.branding.logo || '') !== String(current.logo || ''));
+      if (changesMark) {
+        return sendJson(ctx.res, 403, {
+          error: 'Custom wordmarks and logos are part of CoolCloud Enterprise. Community keeps the CoolCloud mark.',
+          code: 'edition'
+        });
+      }
+    }
     if (body.name !== undefined) next.name = String(body.name).trim().slice(0, 60) || 'CoolCloud';
     if (body.publicUrl !== undefined) next.publicUrl = normalizeUrl(body.publicUrl) || next.publicUrl;
     if (body.branding && typeof body.branding === 'object') {
@@ -165,13 +194,11 @@ export function registerAdmin(router) {
     if (Array.isArray(body.apps?.disabled)) next.apps.disabled = body.apps.disabled.map(String);
     if (body.apps?.essentialsInstalled !== undefined) {
       next.apps.essentialsInstalled = Boolean(body.apps.essentialsInstalled);
-      next.features.connect = next.apps.essentialsInstalled;
-      next.features.media = next.apps.essentialsInstalled;
-      next.features.assistant = next.apps.essentialsInstalled;
+      for (const name of next.apps.essentials || []) next.features[name] = next.apps.essentialsInstalled;
     }
     ctx.cfg = next;
     saveConfig(ctx.paths.configPath, next);
-    syncApps(ctx.db, path.join(ctx.bundleRoot, 'apps'), ctx.paths.appsDir, next);
+    syncApps(ctx.db, path.join(ctx.paths.root, 'apps'), ctx.paths.appsDir, next);
     audit(ctx.db, admin.id, 'config.updated', Object.keys(body).join(','), ipOf(ctx.req));
     sendJson(ctx.res, 200, { ok: true, config: next });
   });
@@ -335,28 +362,65 @@ export function registerAdmin(router) {
     requireAdmin(ctx);
     const rows = ctx.db.prepare('SELECT * FROM registries ORDER BY fetched_at DESC').all();
     const installed = new Map(listApps(ctx.db, { includeDisabled: true }).map((app) => [app.id, app]));
-    sendJson(ctx.res, 200, {
-      registries: rows.map((row) => {
-        let payload = {};
-        try {
-          payload = JSON.parse(row.payload || '{}');
-        } catch {
-          payload = {};
-        }
-        return {
-          url: row.url,
-          name: row.name,
-          error: row.error,
-          fetchedAt: row.fetched_at,
-          apps: (payload.apps || []).map((app) => ({
-            ...app,
-            installed: installed.has(app.id),
-            enabled: installed.get(app.id)?.enabled || false
-          }))
-        };
-      }),
-      installed: [...installed.values()]
+    const official = String(ctx.cfg.appstore?.official || '');
+    const categories = new Set();
+    let publishGuide = `${REGISTRY_HOME}publish.html`;
+    const registries = rows.map((row) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(row.payload || '{}');
+      } catch {
+        payload = {};
+      }
+      for (const name of payload.categories || []) if (name) categories.add(String(name));
+      const apps = payload.apps || [];
+      for (const app of apps) if (app.category) categories.add(String(app.category));
+      if (row.url === official && payload.publishGuide) publishGuide = String(payload.publishGuide);
+      return {
+        url: row.url,
+        name: row.name,
+        error: row.error,
+        fetchedAt: row.fetched_at,
+        official: row.url === official,
+        homepage: payload.homepage || '',
+        categories: payload.categories || [],
+        apps: apps.map((app) => ({
+          ...app,
+          installed: installed.has(app.id),
+          enabled: installed.get(app.id)?.enabled || false
+        }))
+      };
     });
+    sendJson(ctx.res, 200, {
+      registries,
+      installed: [...installed.values()],
+      categories: [...categories].sort(),
+      official,
+      edition: ctx.cfg.edition || 'community',
+      registryHome: REGISTRY_HOME,
+      publishGuide
+    });
+  });
+
+  router.post('/api/admin/store/refresh', async (ctx) => {
+    const admin = requireAdmin(ctx);
+    const rows = ctx.db.prepare('SELECT * FROM registries').all();
+    let updated = 0;
+    for (const row of rows) {
+      try {
+        const payload = await fetchRegistry(row.url);
+        ctx.db
+          .prepare('UPDATE registries SET name = ?, payload = ?, fetched_at = ?, error = ? WHERE url = ?')
+          .run(String(payload.name || row.name).slice(0, 80), JSON.stringify(payload), nowISO(), '', row.url);
+        updated += 1;
+      } catch (err) {
+        ctx.db
+          .prepare('UPDATE registries SET error = ?, fetched_at = ? WHERE url = ?')
+          .run(String(err.message || 'Could not refresh').slice(0, 300), nowISO(), row.url);
+      }
+    }
+    audit(ctx.db, admin.id, 'registry.refreshed', `${rows.length} registries`, ipOf(ctx.req));
+    sendJson(ctx.res, 200, { ok: true, updated, total: rows.length });
   });
 
   router.post('/api/admin/store/registries', async (ctx) => {
@@ -366,17 +430,17 @@ export function registerAdmin(router) {
     if (!/^https?:\/\//i.test(url)) return sendJson(ctx.res, 400, { error: 'Registry URL must start with http:// or https://' });
     let payload;
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(12000), headers: { Accept: 'application/json' } });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      payload = await response.json();
+      payload = await fetchRegistry(url, 12000);
     } catch (err) {
       return sendJson(ctx.res, 400, { error: `Could not read that registry: ${err.message}` });
     }
-    if (!payload || !Array.isArray(payload.apps)) {
-      return sendJson(ctx.res, 400, { error: 'That JSON has no "apps" array' });
-    }
-    const invalid = payload.apps.find((app) => !app || !app.id || !app.name || !app.repo);
-    if (invalid) return sendJson(ctx.res, 400, { error: 'Every app needs id, name and repo' });
+    const invalid = payload.apps.find((app) => !app || !app.id || !app.name || !(app.repo || payload.repo));
+    if (invalid) return sendJson(ctx.res, 400, { error: 'Every app needs id, name and a repo (on the app or the registry)' });
+    payload.apps = payload.apps.map((app) => ({
+      ...app,
+      repo: app.repo || payload.repo,
+      branch: app.branch || payload.branch || 'main'
+    }));
     ctx.db
       .prepare(
         `INSERT INTO registries (url, name, payload, fetched_at, error) VALUES (?, ?, ?, ?, '')
@@ -397,40 +461,44 @@ export function registerAdmin(router) {
   router.post('/api/admin/store/install', async (ctx) => {
     const admin = requireAdmin(ctx);
     const body = await ctx.json();
-    let git = body.git;
-    let appMeta = null;
-    if (!git) {
-      const wanted = String(body.id || '');
-      const rows = ctx.db.prepare('SELECT * FROM registries').all();
-      for (const row of rows) {
-        let payload = {};
-        try {
-          payload = JSON.parse(row.payload || '{}');
-        } catch {
-          continue;
-        }
-        const found = (payload.apps || []).find((app) => app.id === wanted);
-        if (found) {
-          git = found.repo;
-          appMeta = found;
-          break;
-        }
+    if (body.git) {
+      const type = body.type === 'widget' ? 'widget' : body.type === 'app' ? 'app' : '';
+      try {
+        const app = cloneApp(ctx.db, ctx.paths.appsDir, body.git, { branch: body.branch, type });
+        audit(ctx.db, admin.id, 'store.install', `${app.id} <- ${body.git}`, ipOf(ctx.req));
+        sendJson(ctx.res, 200, { ok: true, app });
+      } catch (err) {
+        sendJson(ctx.res, err.status || 500, { error: err.message });
       }
-      if (!git) {
-        return sendJson(ctx.res, 400, {
-          error: 'That app is not in any registry. Add its registry, or install from a folder or git URL instead.'
-        });
+      return;
+    }
+
+    const wanted = String(body.id || '');
+    let entry = null;
+    const rows = ctx.db.prepare('SELECT * FROM registries').all();
+    for (const row of rows) {
+      let payload = {};
+      try {
+        payload = JSON.parse(row.payload || '{}');
+      } catch {
+        continue;
+      }
+      const found = (payload.apps || []).find((app) => app.id === wanted);
+      if (found) {
+        entry = { repo: found.repo || payload.repo, branch: found.branch || payload.branch, ...found };
+        break;
       }
     }
+    if (!entry) {
+      return sendJson(ctx.res, 400, {
+        error: 'That app is not in any registry. Refresh the store, or install from a folder or git URL instead.'
+      });
+    }
     const type =
-      body.type === 'widget' || body.type === 'app'
-        ? body.type
-        : appMeta?.type === 'widget'
-          ? 'widget'
-          : '';
+      body.type === 'widget' || body.type === 'app' ? body.type : entry.type === 'widget' ? 'widget' : '';
     try {
-      const app = cloneApp(ctx.db, ctx.paths.appsDir, git, { branch: body.branch, type });
-      audit(ctx.db, admin.id, 'store.install', `${appMeta?.id || app.id} <- ${git}`, ipOf(ctx.req));
+      const app = await installRegistryApp(ctx.db, ctx.paths.appsDir, entry, { type });
+      audit(ctx.db, admin.id, 'store.install', `${entry.id} <- ${entry.repo || 'registry'}`, ipOf(ctx.req));
       sendJson(ctx.res, 200, { ok: true, app });
     } catch (err) {
       sendJson(ctx.res, err.status || 500, { error: err.message });

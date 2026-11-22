@@ -1,9 +1,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+/** The registry the installer and App Store pull apps from. */
+export const OFFICIAL_REGISTRY = 'https://raw.githubusercontent.com/openhcat/cc-appregistry/main/registry.json';
+export const REGISTRY_HOME = 'https://openhcat.github.io/cc-appregistry/';
+export const WEBSITE = 'https://coolcloud.odoo.com';
+
+/** 'community' unless the tree carries an EDITION file that says enterprise. */
+function readEdition() {
+  try {
+    const text = fs.readFileSync(new URL('../EDITION', import.meta.url), 'utf8').trim().toLowerCase();
+    return text === 'enterprise' ? 'enterprise' : 'community';
+  } catch {
+    return 'community';
+  }
+}
+
+export const EDITION = readEdition();
+
+/** Community is branded CoolCloud; custom names and logos belong to Enterprise. */
+export function brandingUnlocked(cfg = {}) {
+  return (cfg.edition || EDITION) === 'enterprise';
+}
+
 export const DEFAULT_CONFIG = {
-  version: 1,
+  version: 2,
+  edition: EDITION,
   name: 'CoolCloud',
+  website: WEBSITE,
   host: '0.0.0.0',
   port: 8080,
   publicUrl: 'http://localhost:8080',
@@ -22,9 +46,13 @@ export const DEFAULT_CONFIG = {
   limits: { maxUsers: 0 },
   apps: {
     core: ['files', 'calendar', 'mail', 'contacts', 'editor', 'tasks'],
-    essentials: ['connect', 'media', 'assistant'],
+    essentials: ['connect', 'media', 'assistant', 'crm', 'finance', 'projects', 'studio'],
     essentialsInstalled: false,
     disabled: []
+  },
+  appstore: {
+    official: OFFICIAL_REGISTRY,
+    registries: [OFFICIAL_REGISTRY]
   },
   editor: {
     text: true,
@@ -36,7 +64,17 @@ export const DEFAULT_CONFIG = {
     wopiSecret: ''
   },
   mail: { allowUserSmtp: true, allowUserImap: true },
-  features: { search: true, appstore: true, assistant: false, connect: false, media: false },
+  features: {
+    search: true,
+    appstore: true,
+    assistant: false,
+    connect: false,
+    media: false,
+    crm: false,
+    finance: false,
+    projects: false,
+    studio: false
+  },
   security: { sessionDays: 14, allowSignups: false, trustProxy: true }
 };
 

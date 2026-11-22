@@ -1,0 +1,75 @@
+COMMUNITY AND ENTERPRISE
+========================
+
+CoolCloud comes in two editions built from the same codebase.
+
+  Community    This repository. MIT. Full product: every app, the registry,
+               the App Store, admin, the CLI. The instance is CoolCloud, with
+               the CoolCloud name and mark. The accent colour is yours.
+
+  Enterprise   A private, commercially licensed edition. Everything in
+               Community, plus the right to rename the product and replace
+               the wordmark and logo with your own company's branding.
+
+The editions do not differ in features. They differ in licensing and in who
+owns the brand on the sign-in screen and in the sidebar.
+
+
+HOW THE EDITION IS DECIDED
+--------------------------
+A file named EDITION sits at the root of the installation:
+
+  EDITION            -> "community" or "enterprise"
+
+server/config.js reads it once at start (default "community" when absent) and
+exposes it as config.edition. Every instance created by the installer writes
+the EDITION file it was installed from. Nothing is fetched from a licence
+server, and there is no phone-home.
+
+
+WHAT COMMUNITY LOCKS
+--------------------
+Admin -> Personalization always offers the accent colour, the swatches and the
+reset button. The wordmark plate, product name and custom logo controls are
+replaced by a short card that names CoolCloud Enterprise.
+
+The server enforces the same rule, so a crafted request cannot get around it:
+
+  PATCH /api/admin/config
+    { "name": "Acme Cloud" }                      -> 403, code "edition"
+    { "branding": { "logo": "data:image/..." } }  -> 403, code "edition"
+    { "branding": { "logoWord": "Acme" } }        -> 403, code "edition"
+    { "branding": { "accent": "#0b5fb0" } }       -> 200
+
+Organisation name and domain stay editable in both editions: they label the
+instance ("Acme Ltd" on sign-in), they do not replace the product identity.
+
+
+WHAT ENTERPRISE UNLOCKS
+-----------------------
+With EDITION=enterprise:
+
+  * Product name, wordmark word and custom logo fields appear again.
+  * The same PATCH request succeeds and rewrites every page, tab, sign-in
+    screen and browser icon.
+  * The branding gate in server/api/admin.js becomes a no-op.
+
+Enterprise is distributed as its own private repository with a commercial
+licence. It is the same server and the same apps; deploy it exactly as
+Community (docs/HOSTING.txt), and set the branding from Admin.
+
+Do not publish the enterprise tree, its licence file or customer branding in
+a public repository. The public project must keep the Community edition and
+the CoolCloud name.
+
+
+FILES
+-----
+EDITION                        Which edition this tree is
+LICENSE                        MIT, for the Community code
+LICENSE-ENTERPRISE.md          Commercial terms (Enterprise tree only)
+server/config.js               DEFAULT_CONFIG, brandingUnlocked(), edition
+server/api/admin.js            The branding gate and PATCH /api/admin/config
+web/js/apps/admin.js           Personalization: accent for all, brand for Enterprise
+
+Website: https://coolcloud.odoo.com

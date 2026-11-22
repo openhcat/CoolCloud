@@ -123,10 +123,16 @@ CoolCloud scans data/apps on startup, so a restart also picks it up.
 
 Ship it
 -------
-1. Put the folder in a git repository whose root contains manifest.json.
+1. Put the folder in a git repository whose root contains manifest.json, or
+   keep it in a subfolder and point the registry entry's `path` at it.
 2. Tag a version that matches `version` in the manifest.
-3. Add it to a registry (APPSTORE-REGISTRY.txt) or share the repo URL.
-4. Admins install it from Admin → App Store, or with --install.
+3. Add an entry to a registry (APPSTORE-REGISTRY.txt).
+4. For the official registry, open a pull request to
+   https://github.com/openhcat/cc-appregistry adding the entry to
+   registry.json. The full guide, with the manifest reference and a review
+   checklist, is PUBLISHING.md in that repository and
+   https://openhcat.github.io/cc-appregistry/publish.html
+5. Admins install it from Admin → App Store → Explore, or with --install.
 
 Security model
 --------------

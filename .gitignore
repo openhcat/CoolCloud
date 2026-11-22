@@ -10,3 +10,7 @@ __pycache__/
 *.pyc
 .freebuff/
 screenshot-*.png
+
+# Separate projects that live beside this checkout, never inside it.
+/enterprise/
+/cc-appregistry/

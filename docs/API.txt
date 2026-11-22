@@ -153,10 +153,20 @@ GET    /api/admin/apps
 POST   /api/admin/apps/:id/toggle       { enabled }
 POST   /api/admin/apps/install          { dir } or { git, branch? }
 DELETE /api/admin/apps/:id
-GET    /api/admin/store
+GET    /api/admin/store                 { registries, installed, categories, official, edition, registryHome, publishGuide }
 POST   /api/admin/store/registries      { url }
 DELETE /api/admin/store/registries?url=...
+POST   /api/admin/store/refresh         re-fetch every registry, report updated/total
 POST   /api/admin/store/install         { id } or { git }
+
+Store notes
+-----------
+* A new install seeds the official registry from config.appstore.official
+  (default: the Official CoolCloud App Registry on GitHub).
+* Installing by id uses the entry's `files` download list, confined to the
+  package, with a 4 MB cap per file; manifests are validated before enabling.
+* registry entries inherit `repo` and `branch` from the registry itself.
+* Only admins can read or change registries.
 GET    /api/admin/office                { provider, url, container, running, ready }
 POST   /api/admin/office/provision      { provider: "collabora" | "onlyoffice" }
 DELETE /api/admin/office                stop + remove the office container
@@ -171,7 +181,7 @@ POST   /wopi/files/:id                             LOCK/UNLOCK/REFRESH_LOCK
 Public
 ------
 GET    /health                          { ok, name, version, uptime }
-GET    /api/branding                    { name, branding, version }
+GET    /api/branding                    { name, edition, website, branding, version }
        Unauthenticated so the sign-in screen can show the instance identity.
        Contains no secrets: logoWord, accent, logo data URL.
 

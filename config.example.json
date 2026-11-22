@@ -1,15 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
+  "edition": "community",
   "name": "CoolCloud",
+  "website": "https://coolcloud.odoo.com",
   "host": "0.0.0.0",
   "port": 8080,
   "publicUrl": "http://localhost:8080",
   "timezone": "system",
   "branding": {
     "tagline": "Your workspace, on your machine",
-    "logoWord": "CLOUD",
+    "logoWord": "Cloud",
     "mark": "cl",
-    "accent": "#a8491f",
+    "accent": "#0b5fb0",
     "logo": ""
   },
   "storage": {
@@ -22,9 +24,13 @@
   },
   "apps": {
     "core": ["files", "calendar", "mail", "contacts", "editor", "tasks"],
-    "essentials": ["connect", "media", "assistant"],
+    "essentials": ["connect", "media", "assistant", "crm", "finance", "projects", "studio"],
     "essentialsInstalled": false,
     "disabled": []
+  },
+  "appstore": {
+    "official": "https://raw.githubusercontent.com/openhcat/cc-appregistry/main/registry.json",
+    "registries": ["https://raw.githubusercontent.com/openhcat/cc-appregistry/main/registry.json"]
   },
   "editor": {
     "text": true,
@@ -44,7 +50,11 @@
     "appstore": true,
     "assistant": false,
     "connect": false,
-    "media": false
+    "media": false,
+    "crm": false,
+    "finance": false,
+    "projects": false,
+    "studio": false
   },
   "security": {
     "sessionDays": 14,
