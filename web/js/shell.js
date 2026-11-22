@@ -238,7 +238,13 @@ export async function init() {
   });
   try {
     const identity = await api('/api/branding');
-    state.server = { name: identity.name, organization: identity.organization || {} };
+    state.server = {
+      name: identity.name,
+      organization: identity.organization || {},
+      website: identity.website,
+      edition: identity.edition,
+      sso: identity.sso || {}
+    };
     applyBranding(identity.branding, identity.name);
   } catch {
     /* an older server without /api/branding still works */
