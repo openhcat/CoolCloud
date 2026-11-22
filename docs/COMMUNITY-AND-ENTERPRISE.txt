@@ -11,8 +11,9 @@ CoolCloud comes in two editions built from the same codebase.
                Community, plus the right to rename the product and replace
                the wordmark and logo with your own company's branding.
 
-The editions do not differ in features. They differ in licensing and in who
-owns the brand on the sign-in screen and in the sidebar.
+Community has every app and every collaboration feature. Enterprise adds
+security and scale features on top: SSO, encryption at rest, hardening
+controls, audit export, and fuller CRM/Finance app variants.
 
 
 HOW THE EDITION IS DECIDED
@@ -53,6 +54,20 @@ With EDITION=enterprise:
   * The same PATCH request succeeds and rewrites every page, tab, sign-in
     screen and browser icon.
   * The branding gate in server/api/admin.js becomes a no-op.
+  * Single sign-on (OpenID Connect): /api/auth/sso/start and
+    /api/auth/sso/callback, configured in config.sso. See docs/SSO.txt.
+  * Encryption at rest for TOTP secrets, mail passwords and app data, with a
+    master key in data/keys/master.key or CC_MASTER_KEY. See
+    docs/ENCRYPTION.txt.
+  * Security policy: IP allowlists (all API or admin only), password rules,
+    a cap on concurrent sessions, and CSV/JSON audit export.
+  * CRM and Finance ship in their full variants (pipeline and forecasting;
+    expenses, recurring invoices and CSV export).
+
+The Community CRM and Finance are intentionally small: a contacts book and
+an invoice list. The full variants live in the Enterprise tree under
+enterprise-packages/ and are installed by the Enterprise installer under the
+same app ids.
 
 Enterprise is distributed as its own private repository with a commercial
 licence. It is the same server and the same apps; deploy it exactly as
